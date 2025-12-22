@@ -84,6 +84,10 @@ kcov_wrap_init() {
   # To keep CI deterministic, avoid deleting previous runs and instead allocate
   # a fresh parts directory per invocation.
   kcov_parts_dir="$(mktemp -d "${KCOV_WRAP_OUT_DIR}/kcov-parts.XXXXXX")"
+
+  # mktemp creates 0700 by default; if the coverage was generated as root
+  # (e.g. via a container), GitHub's artifact upload step can fail to scan it.
+  chmod a+rX "$kcov_parts_dir" 2>/dev/null || true
 }
 
 kcov_wrap_run() {
@@ -125,10 +129,12 @@ kcov_wrap_run() {
   local timeout_seconds="${KCOV_WRAP_TIMEOUT_SECONDS:-}"
   if [[ -n "$timeout_seconds" && -x "$(command -v timeout 2>/dev/null || true)" ]]; then
     timeout --foreground -k 1s "${timeout_seconds}s" "${kcov_cmd[@]}" >/dev/null 2>&1 || true
+    chmod -R a+rX "$out" 2>/dev/null || true
     return 0
   fi
 
   "${kcov_cmd[@]}" >/dev/null
+  chmod -R a+rX "$out" 2>/dev/null || true
 }
 
 kcov_wrap_run_stdin() {
@@ -171,10 +177,12 @@ kcov_wrap_run_stdin() {
   local timeout_seconds="${KCOV_WRAP_TIMEOUT_SECONDS:-}"
   if [[ -n "$timeout_seconds" && -x "$(command -v timeout 2>/dev/null || true)" ]]; then
     timeout --foreground -k 1s "${timeout_seconds}s" "${kcov_cmd[@]}" <"$stdin_file" >/dev/null 2>&1 || true
+    chmod -R a+rX "$out" 2>/dev/null || true
     return 0
   fi
 
   "${kcov_cmd[@]}" <"$stdin_file" >/dev/null
+  chmod -R a+rX "$out" 2>/dev/null || true
 }
 
 kcov_wrap_merge() {
@@ -185,6 +193,10 @@ kcov_wrap_merge() {
   local merged_out="${KCOV_WRAP_OUT_DIR}/kcov-merged.new"
   rm -rf "$merged_out" 2>/dev/null || true
   mkdir -p "$merged_out"
+
+  # Ensure artifact upload can traverse the output directory.
+  chmod a+rX "${KCOV_WRAP_OUT_DIR}" 2>/dev/null || true
+  chmod a+rX "${kcov_parts_dir}" 2>/dev/null || true
 
   shopt -s nullglob
   parts=("${kcov_parts_dir}"/*)
@@ -197,10 +209,13 @@ kcov_wrap_merge() {
 
   kcov --merge "$merged_out" "${parts[@]}" >/dev/null
 
+  chmod -R a+rX "$merged_out" 2>/dev/null || true
+
   if [[ -e "${KCOV_WRAP_OUT_DIR}/kcov-merged" ]]; then
     mv "${KCOV_WRAP_OUT_DIR}/kcov-merged" "${KCOV_WRAP_OUT_DIR}/kcov-merged.old.$$" 2>/dev/null || true
   fi
   mv "$merged_out" "${KCOV_WRAP_OUT_DIR}/kcov-merged" 2>/dev/null || true
+  chmod -R a+rX "${KCOV_WRAP_OUT_DIR}/kcov-merged" 2>/dev/null || true
 }
 
 kcov_wrap_init
