@@ -27,7 +27,7 @@ appliance_log_prefix() {
   else
     logging__cover_path_raw "lib-logging:prefix-default"
   fi
-  echo "${APPLIANCE_LOG_PREFIX:-template-appliance}"
+  echo "${APPLIANCE_LOG_PREFIX:-runner}"
 }
 
 log() {

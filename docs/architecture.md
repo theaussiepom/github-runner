@@ -1,8 +1,9 @@
 # Architecture
 
-template-appliance is a reusable skeleton for a systemd-managed appliance.
+runner is a systemd-managed appliance for running a single GitHub Actions self-hosted runner.
 
-The design goal is a small, copyable “runner” that you can adapt by setting commands in a config file.
+The runner process lives on the host, but job execution is intended to run inside an ephemeral
+`systemd-nspawn` guest (systemd PID1 semantics).
 
 ## Glossary
 
@@ -10,11 +11,9 @@ See [Glossary](glossary.md).
 
 ## Goals
 
-- Provide a predictable baseline for a systemd-managed appliance.
-- Support two modes:
-  - Primary mode: your main workload.
-  - Secondary mode: a fallback workload.
+- Keep host lifecycle predictable (systemd unit for install, systemd unit for runner).
 - Make first-boot installs idempotent and retryable.
+- Avoid Docker at runtime by routing containerized jobs through `systemd-nspawn`.
 
 ## High-level component map
 
@@ -22,40 +21,37 @@ See [Glossary](glossary.md).
 flowchart TD
   subgraph HOST[Linux host]
     SYSTEMD[systemd]
-    INSTALL[template-appliance-install.service]
-    PRIMARY[template-appliance-primary.service]
-    SECONDARY[template-appliance-secondary.service]
-    TIMER[template-appliance-healthcheck.timer]
-    CHECK[template-appliance-healthcheck.service]
+    INSTALL[runner-install.service]
+    RUNNER[runner.service]
+    HOOKS[ACTIONS_RUNNER_CONTAINER_HOOKS\ncontainer-hooks.sh]
+    NSPAWN[ci-nspawn-run\n(systemd-nspawn + systemd-run -M)]
   end
 
   SYSTEMD --> INSTALL
-  SYSTEMD --> PRIMARY
-  SYSTEMD --> SECONDARY
-  TIMER --> CHECK
-  CHECK -->|"primary inactive"| SECONDARY
+  SYSTEMD --> RUNNER
+  RUNNER --> HOOKS
+  HOOKS --> NSPAWN
 ```
 
-Configuration is loaded from `/etc/template-appliance/config.env`.
+Configuration is loaded from `/etc/runner/config.env`.
 
 ## Systemd units
 
 Install-time:
 
-- `template-appliance-install.service`: one-time installer (first boot; retried until it succeeds).
+- `runner-install.service`: one-time installer (first boot; retried until it succeeds).
 
 Runtime:
 
-- `template-appliance-primary.service`: runs `/usr/local/lib/template-appliance/primary-mode.sh`.
-- `template-appliance-secondary.service`: runs `/usr/local/lib/template-appliance/secondary-mode.sh`.
-- `template-appliance-healthcheck.timer`: periodically runs `template-appliance-healthcheck.service`.
+- `runner.service`: runs `/usr/local/lib/runner/runner-service.sh`.
 
 ## Installed layout
 
-- `/etc/template-appliance/config.env`: runtime configuration.
-- `/usr/local/lib/template-appliance/*.sh`: installed scripts.
-- `/usr/local/lib/template-appliance/lib/*.sh`: shared lib helpers.
-- `/var/lib/template-appliance/installed`: one-time install marker.
+- `/etc/runner/config.env`: runtime configuration.
+- `/usr/local/lib/runner/*.sh`: installed scripts.
+- `/usr/local/lib/runner/lib/*.sh`: shared lib helpers.
+- `/usr/local/bin/ci-nspawn-run`: helper used by container hooks.
+- `/var/lib/runner/installed`: one-time install marker.
 
 ## Boot and installation flow
 
@@ -75,11 +71,11 @@ sequenceDiagram
   participant REPO as repo checkout
   participant INST as scripts/install.sh
 
-  CI->>CI: write /etc/template-appliance/config.env
-  CI->>SD: install template-appliance-install.service
-  CI->>CI: write /usr/local/lib/template-appliance/bootstrap.sh
-  SD->>BOOT: start template-appliance-install.service
-  BOOT->>BOOT: check /var/lib/template-appliance/installed
+  CI->>CI: write /etc/runner/config.env
+  CI->>SD: install runner-install.service
+  CI->>CI: write /usr/local/lib/runner/bootstrap.sh
+  SD->>BOOT: start runner-install.service
+  BOOT->>BOOT: check /var/lib/runner/installed
   alt already installed
     BOOT-->>SD: exit 0
   else not installed
@@ -92,26 +88,19 @@ sequenceDiagram
 If you want to re-run install without reflashing, delete the marker file and restart the unit:
 
 ```bash
-sudo rm -f /var/lib/template-appliance/installed
-sudo systemctl restart template-appliance-install.service
+sudo rm -f /var/lib/runner/installed
+sudo systemctl restart runner-install.service
 ```
 
-## Mode behavior
+## GitHub runner container hooks
 
-The mode runners execute your commands:
+`runner-service.sh` sets `ACTIONS_RUNNER_CONTAINER_HOOKS` when `container-hooks.sh` is present.
 
-- Primary: `bash -lc "$APPLIANCE_PRIMARY_CMD"`
-- Secondary: `bash -lc "$APPLIANCE_SECONDARY_CMD"`
+This is intended to allow the runner to execute containerized jobs without Docker by routing the hook
+callbacks through `ci-nspawn-run`.
 
-If a command is missing, the service logs and sleeps (so the unit stays active and you can update config without
-rapid restart loops).
+Limitations:
 
-## Healthcheck/failover
-
-The healthcheck service checks whether the primary service is active.
-
-- If primary is active, it exits success.
-- If primary is inactive, it starts the secondary service.
-
-By default it checks `template-appliance-primary.service` and starts `template-appliance-secondary.service`, but you
-can override them via `APPLIANCE_PRIMARY_SERVICE` and `APPLIANCE_SECONDARY_SERVICE`.
+- Hooks are only used by the runner in scenarios where it runs steps in a container
+  (for example: workflows using job `container:`).
+- `run_container_step` is not implemented (only `run_script_step` is routed).

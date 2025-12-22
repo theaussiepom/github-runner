@@ -18,7 +18,7 @@ teardown() {
 	unset -v APPLIANCE_LOG_PREFIX
 	run appliance_log_prefix
 	[ "$status" -eq 0 ]
-	[ "$output" = "template-appliance" ]
+	[ "$output" = "runner" ]
 
 	APPLIANCE_LOG_PREFIX="custom"
 	run appliance_log_prefix

@@ -10,8 +10,8 @@ source "$SCRIPT_DIR/lib/common.sh"
 # shellcheck source=scripts/lib/config.sh
 source "$SCRIPT_DIR/lib/config.sh"
 
-MARKER_FILE="${APPLIANCE_INSTALLED_MARKER:-$(appliance_path /var/lib/template-appliance/installed)}"
-LOCK_FILE="${APPLIANCE_INSTALL_LOCK:-$(appliance_path /var/lock/template-appliance-install.lock)}"
+MARKER_FILE="${APPLIANCE_INSTALLED_MARKER:-$(appliance_path /var/lib/runner/installed)}"
+LOCK_FILE="${APPLIANCE_INSTALL_LOCK:-$(appliance_path /var/lock/runner-install.lock)}"
 
 require_root() {
   if [[ "${APPLIANCE_ALLOW_NON_ROOT:-0}" == "1" ]]; then
@@ -62,6 +62,7 @@ install_packages() {
     ca-certificates \
     curl \
     git \
+    jq \
     "${extra_pkgs[@]}"
 }
 
@@ -73,8 +74,8 @@ install_files() {
   local lib_dir
   local bin_dir
   local systemd_dir
-  etc_dir="$(appliance_path /etc/template-appliance)"
-  lib_dir="${APPLIANCE_LIBDIR:-$(appliance_path /usr/local/lib/template-appliance)}"
+  etc_dir="$(appliance_path /etc/runner)"
+  lib_dir="${APPLIANCE_LIBDIR:-$(appliance_path /usr/local/lib/runner)}"
   bin_dir="${APPLIANCE_BINDIR:-$(appliance_path /usr/local/bin)}"
   systemd_dir="${APPLIANCE_SYSTEMD_DIR:-$(appliance_path /etc/systemd/system)}"
 
@@ -87,6 +88,13 @@ install_files() {
   # Install bootstrap + core installer assets.
   run_cmd install -m 0755 "$repo_root/scripts/bootstrap.sh" "$lib_dir/bootstrap.sh"
 
+  # Install runner management + job isolation helpers.
+  run_cmd install -m 0755 "$repo_root/scripts/runner-service.sh" "$lib_dir/runner-service.sh"
+  run_cmd install -m 0755 "$repo_root/scripts/container-hooks.sh" "$lib_dir/container-hooks.sh"
+  run_cmd install -m 0755 "$repo_root/scripts/uninstall.sh" "$lib_dir/uninstall.sh"
+  run_cmd install -m 0755 "$repo_root/scripts/ci-nspawn-run.sh" "$bin_dir/ci-nspawn-run"
+  run_cmd ln -sf "$lib_dir/uninstall.sh" "$bin_dir/runner-uninstall"
+
   # Install shared lib helpers.
   if [[ -d "$repo_root/scripts/lib" ]]; then
     run_cmd install -m 0755 "$repo_root/scripts/lib/common.sh" "$lib_dir/lib/common.sh"
@@ -97,38 +105,17 @@ install_files() {
     fi
   fi
 
-  # Install appliance scripts.
-  if [[ -f "$repo_root/scripts/mode/primary-mode.sh" ]]; then
-    run_cmd install -m 0755 "$repo_root/scripts/mode/primary-mode.sh" "$lib_dir/primary-mode.sh"
-  fi
-  if [[ -f "$repo_root/scripts/mode/secondary-mode.sh" ]]; then
-    run_cmd install -m 0755 "$repo_root/scripts/mode/secondary-mode.sh" "$lib_dir/secondary-mode.sh"
-  fi
-  if [[ -f "$repo_root/scripts/mode/enter-primary-mode.sh" ]]; then
-    run_cmd install -m 0755 "$repo_root/scripts/mode/enter-primary-mode.sh" "$lib_dir/enter-primary-mode.sh"
-  fi
-  if [[ -f "$repo_root/scripts/mode/enter-secondary-mode.sh" ]]; then
-    run_cmd install -m 0755 "$repo_root/scripts/mode/enter-secondary-mode.sh" "$lib_dir/enter-secondary-mode.sh"
-  fi
-
-  if [[ -f "$repo_root/scripts/healthcheck.sh" ]]; then
-    run_cmd install -m 0755 "$repo_root/scripts/healthcheck.sh" "$lib_dir/healthcheck.sh"
-  fi
+  # Only runner scripts are installed.
 
   # Install systemd units.
-  run_cmd install -m 0644 "$repo_root/systemd/template-appliance-install.service" "$systemd_dir/template-appliance-install.service"
-  run_cmd install -m 0644 "$repo_root/systemd/template-appliance-primary.service" "$systemd_dir/template-appliance-primary.service"
-  run_cmd install -m 0644 "$repo_root/systemd/template-appliance-secondary.service" "$systemd_dir/template-appliance-secondary.service"
-  run_cmd install -m 0644 "$repo_root/systemd/template-appliance-healthcheck.service" "$systemd_dir/template-appliance-healthcheck.service"
-  run_cmd install -m 0644 "$repo_root/systemd/template-appliance-healthcheck.timer" "$systemd_dir/template-appliance-healthcheck.timer"
+  run_cmd install -m 0644 "$repo_root/systemd/runner-install.service" "$systemd_dir/runner-install.service"
+  run_cmd install -m 0644 "$repo_root/systemd/runner.service" "$systemd_dir/runner.service"
 }
 
 enable_services() {
   run_cmd systemctl daemon-reload
 
-  # Default to primary mode on boot; secondary mode is started by healthcheck/failover.
-  run_cmd systemctl enable template-appliance-primary.service > /dev/null 2>&1 || true
-  run_cmd systemctl enable template-appliance-healthcheck.timer > /dev/null 2>&1 || true
+  run_cmd systemctl enable runner.service > /dev/null 2>&1 || true
 }
 
 write_marker() {
@@ -145,7 +132,7 @@ write_marker() {
 main() {
   require_root
   load_config_env
-  export APPLIANCE_LOG_PREFIX="template-appliance install"
+  export APPLIANCE_LOG_PREFIX="runner install"
 
   if [[ -f "$MARKER_FILE" ]]; then
     cover_path "install:marker-present-early"

@@ -5,7 +5,7 @@ load '../helpers/common.bash'
 setup() {
 	setup_test_root
 	# Unit tests should not rely on external effects.
-	write_config_env 'APPLIANCE_LOG_PREFIX="template-appliance"'
+	write_config_env 'APPLIANCE_LOG_PREFIX="runner"'
 
 	# shellcheck source=scripts/lib/common.sh
 	source "$APPLIANCE_REPO_ROOT/scripts/lib/common.sh"
@@ -45,6 +45,30 @@ EOF
 	APPLIANCE_ROOT="/" run appliance_root
 	[ "$status" -eq 0 ]
 	[ "$output" = "/" ]
+}
+
+@test "lib-common: appliance_root rejects relative APPLIANCE_ROOT (no die)" {
+	run bash -c "set -euo pipefail; export APPLIANCE_REPO_ROOT=\"$APPLIANCE_REPO_ROOT\"; source \"$APPLIANCE_REPO_ROOT/scripts/lib/common.sh\"; APPLIANCE_ROOT=relative; appliance_root" 2>&1
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"APPLIANCE_ROOT must be an absolute path"* ]]
+}
+
+@test "lib-common: appliance_root rejects relative APPLIANCE_ROOT (with die)" {
+	run bash -c "set -euo pipefail; export APPLIANCE_REPO_ROOT=\"$APPLIANCE_REPO_ROOT\"; source \"$APPLIANCE_REPO_ROOT/scripts/lib/common.sh\"; source \"$APPLIANCE_REPO_ROOT/scripts/lib/logging.sh\"; APPLIANCE_ROOT=relative; appliance_root" 2>&1
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"APPLIANCE_ROOT must be an absolute path"* ]]
+}
+
+@test "lib-common: appliance_root rejects quote characters in APPLIANCE_ROOT (no die)" {
+	run bash -c "set -euo pipefail; export APPLIANCE_REPO_ROOT=\"$APPLIANCE_REPO_ROOT\"; source \"$APPLIANCE_REPO_ROOT/scripts/lib/common.sh\"; APPLIANCE_ROOT='/tmp/\"bad'; appliance_root" 2>&1
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"APPLIANCE_ROOT must not contain quote characters"* ]]
+}
+
+@test "lib-common: appliance_root rejects quote characters in APPLIANCE_ROOT (with die)" {
+	run bash -c "set -euo pipefail; export APPLIANCE_REPO_ROOT=\"$APPLIANCE_REPO_ROOT\"; source \"$APPLIANCE_REPO_ROOT/scripts/lib/common.sh\"; source \"$APPLIANCE_REPO_ROOT/scripts/lib/logging.sh\"; APPLIANCE_ROOT='/tmp/\"bad'; appliance_root" 2>&1
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"APPLIANCE_ROOT must not contain quote characters"* ]]
 }
 
 @test "lib-common: appliance_path variants" {

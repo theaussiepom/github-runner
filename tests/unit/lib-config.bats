@@ -17,28 +17,20 @@ teardown() {
 }
 
 @test "lib-config: env default path" {
-	unset -v APPLIANCE_CONFIG_ENV
 	run appliance_config_env_path
 	[ "$status" -eq 0 ]
-	[ "$output" = "$TEST_ROOT/etc/template-appliance/config.env" ]
-}
-
-@test "lib-config: env override path" {
-	APPLIANCE_CONFIG_ENV="$TEST_ROOT/custom.env"
-	run appliance_config_env_path
-	[ "$status" -eq 0 ]
-	[ "$output" = "$TEST_ROOT/custom.env" ]
+	[ "$output" = "$TEST_ROOT/etc/runner/config.env" ]
 }
 
 @test "lib-config: load missing is ok" {
-	APPLIANCE_CONFIG_ENV="$TEST_ROOT/missing.env"
+	rm -f "$TEST_ROOT/etc/runner/config.env"
 	run load_config_env
 	[ "$status" -eq 0 ]
 }
 
 @test "lib-config: load present" {
-	write_config_env 'APPLIANCE_PRIMARY_CMD="echo hello"'
+	write_config_env 'RUNNER_TEST_VAR="hello"'
 	load_config_env
 	[ "$?" -eq 0 ]
-	[ "${APPLIANCE_PRIMARY_CMD:-}" = "echo hello" ]
+	[ "${RUNNER_TEST_VAR:-}" = "hello" ]
 }

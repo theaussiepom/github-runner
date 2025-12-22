@@ -22,7 +22,7 @@ setup_test_root() {
 	# Suite-wide aggregation for path coverage assertions.
 	export APPLIANCE_PATH_COVERAGE=1
 	# Use a stable file so we can run tests individually (per-test timeout runner).
-	export APPLIANCE_PATHS_FILE="${APPLIANCE_PATHS_FILE:-$APPLIANCE_REPO_ROOT/tests/.tmp/template-appliance-paths.log}"
+	export APPLIANCE_PATHS_FILE="${APPLIANCE_PATHS_FILE:-$APPLIANCE_REPO_ROOT/tests/.tmp/runner-paths.log}"
 	# Avoid depending on external dirname (PATH may be intentionally minimal).
 	local paths_dir="${APPLIANCE_PATHS_FILE%/*}"
 	if [[ -z "$paths_dir" || "$paths_dir" == "$APPLIANCE_PATHS_FILE" ]]; then
@@ -31,7 +31,7 @@ setup_test_root() {
 	mkdir -p "$paths_dir"
 	export APPLIANCE_CALLS_FILE_APPEND="$APPLIANCE_PATHS_FILE"
 
-	mkdir -p "$TEST_ROOT/etc/template-appliance" "$TEST_ROOT/var/lib/template-appliance" "$TEST_ROOT/var/lock"
+	mkdir -p "$TEST_ROOT/etc/runner" "$TEST_ROOT/var/lib/runner" "$TEST_ROOT/var/lock"
 
 	# Ensure stubs override system commands.
 	export PATH="$APPLIANCE_REPO_ROOT/tests/stubs:$PATH"
@@ -91,9 +91,8 @@ teardown_test_root() {
 
 write_config_env() {
 	local content="$1"
-	local path="$TEST_ROOT/etc/template-appliance/config.env"
+	local path="$TEST_ROOT/etc/runner/config.env"
 	printf '%s\n' "$content" >"$path"
-	export APPLIANCE_CONFIG_ENV="$path"
 }
 
 # Convenience: assert a file contains a substring.

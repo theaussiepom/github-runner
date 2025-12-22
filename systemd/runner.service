@@ -1,0 +1,14 @@
+[Unit]
+Description=GitHub Actions runner (single)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/runner/config.env
+ExecStart=/usr/local/lib/runner/runner-service.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

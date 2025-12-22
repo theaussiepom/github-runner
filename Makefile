@@ -8,7 +8,7 @@ SHELL := /usr/bin/env bash
 	ci
 
 DOCKER ?= docker
-DEVCONTAINER_IMAGE ?= template-appliance-devcontainer:local
+DEVCONTAINER_IMAGE ?= runner-devcontainer:local
 DEVCONTAINER_DOCKERFILE ?= .devcontainer/Dockerfile
 DEVCONTAINER_CONTEXT ?= .
 DEVCONTAINER_WORKDIR ?= /work

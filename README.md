@@ -1,12 +1,12 @@
-# template-appliance
+# runner
 
-Reusable Bash + systemd appliance skeleton built around a simple model:
+Bash + systemd appliance for running a single GitHub Actions self-hosted runner on Linux (including Raspberry Pi).
 
-- Primary mode: run your main workload (`APPLIANCE_PRIMARY_CMD`)
-- Secondary mode: run a fallback workload (`APPLIANCE_SECONDARY_CMD`)
-- Healthcheck timer: if primary is not active, start secondary
+Goal:
 
-This repo is intentionally minimal: you provide the commands and any extra packages.
+- Keep exactly one host runner process managed by systemd.
+- Route job execution into an ephemeral `systemd-nspawn` guest (systemd PID1 semantics)
+  via GitHub Actions runner container hooks.
 
 ## Documentation
 
@@ -19,7 +19,7 @@ This repo is intentionally minimal: you provide the commands and any extra packa
 Build the devcontainer image:
 
 ```bash
-docker build -t template-appliance-devcontainer -f .devcontainer/Dockerfile .
+docker build -t runner-devcontainer -f .devcontainer/Dockerfile .
 ```
 
 Run the full CI pipeline inside it:
@@ -28,7 +28,7 @@ Run the full CI pipeline inside it:
 docker run --rm \
   -v "$PWD:/work" \
   -w /work \
-  template-appliance-devcontainer \
+  runner-devcontainer \
   bash -lc './scripts/ci.sh'
 ```
 
@@ -42,27 +42,18 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the required pre-PR checks.
 
 ## Runtime model
 
-At a glance, systemd manages three key units:
+At a glance, systemd manages two key units:
 
-- `template-appliance-primary.service`
-- `template-appliance-secondary.service`
-- `template-appliance-healthcheck.timer` (runs `template-appliance-healthcheck.service`)
-
-```mermaid
-flowchart TD
-  PRIMARY["template-appliance-primary.service<br/>runs APPLIANCE_PRIMARY_CMD"]
-  SECONDARY["template-appliance-secondary.service<br/>runs APPLIANCE_SECONDARY_CMD"]
-  TIMER["template-appliance-healthcheck.timer"] --> CHECK["template-appliance-healthcheck.service"]
-  CHECK -->|"primary inactive"| SECONDARY
-```
+- `runner-install.service` (first-boot installer; retried until it succeeds)
+- `runner.service` (runs the configured GitHub runner)
 
 ## Installation (cloud-init / Pi Imager)
 
 The recommended install flow is:
 
-1. cloud-init writes `/etc/template-appliance/config.env`.
+1. cloud-init writes `/etc/runner/config.env`.
 2. cloud-init installs a one-time installer unit + bootstrap script.
-3. systemd runs `template-appliance-install.service` until install succeeds.
+3. systemd runs `runner-install.service` until install succeeds.
 
 Examples:
 
@@ -71,40 +62,44 @@ Examples:
 
 ## Configuration
 
-Runtime configuration lives in `/etc/template-appliance/config.env`.
+Runtime configuration lives in `/etc/runner/config.env`.
 
 Required (first-boot bootstrap):
 
 - `APPLIANCE_REPO_URL`
 - `APPLIANCE_REPO_REF` (branch/tag/commit; pinning to a tag/commit is recommended)
 
-Required (runtime modes):
-
-- `APPLIANCE_PRIMARY_CMD`
-- `APPLIANCE_SECONDARY_CMD`
-
 Optional:
 
-- `APPLIANCE_CHECKOUT_DIR` (default: `/opt/template-appliance`)
-- `APPLIANCE_INSTALLED_MARKER` (default: `/var/lib/template-appliance/installed`)
+- `APPLIANCE_CHECKOUT_DIR` (default: `/opt/runner`)
+- `APPLIANCE_INSTALLED_MARKER` (default: `/var/lib/runner/installed`)
 - `APPLIANCE_APT_PACKAGES` (space-separated extra packages for install)
-- `APPLIANCE_PRIMARY_SERVICE` / `APPLIANCE_SECONDARY_SERVICE` (override healthcheck targets)
 - `APPLIANCE_DRY_RUN=1` (do not modify system; record intended actions)
+
+Runner:
+
+- `RUNNER_ACTIONS_RUNNER_DIR` (default: `/opt/runner/actions-runner`)
+- `RUNNER_HOOKS_DIR` (default: `/usr/local/lib/runner`)
+
+Job isolation (`systemd-nspawn`):
+
+- `RUNNER_NSPAWN_BASE_ROOTFS` (default: `/var/lib/runner/nspawn/base-rootfs`)
+- `RUNNER_NSPAWN_READY_TIMEOUT_S` (default: `20`)
+- `RUNNER_NSPAWN_BIND` / `RUNNER_NSPAWN_BIND_RO` (space-separated bind mount entries)
 
 ## Day-2 operations
 
-Switch modes:
+Inspect service status:
 
 ```bash
-systemctl start template-appliance-primary.service
-systemctl start template-appliance-secondary.service
+systemctl status runner.service --no-pager
 ```
 
 Inspect install/boot status:
 
 ```bash
-systemctl status template-appliance-install.service --no-pager
-ls -l /var/lib/template-appliance/installed || true
+systemctl status runner-install.service --no-pager
+ls -l /var/lib/runner/installed || true
 ```
 
 ## Manual install (no cloud-init)
@@ -118,18 +113,18 @@ sudo apt-get update
 sudo apt-get install -y --no-install-recommends ca-certificates curl git
 ```
 
-1. Create `/etc/template-appliance/config.env` (start from the example):
+1. Create `/etc/runner/config.env` (start from the example):
 
 ```bash
-sudo mkdir -p /etc/template-appliance
-sudo cp /path/to/template-appliance/examples/config.env.example /etc/template-appliance/config.env
-sudo nano /etc/template-appliance/config.env
+sudo mkdir -p /etc/runner
+sudo cp /path/to/runner/examples/config.env.example /etc/runner/config.env
+sudo nano /etc/runner/config.env
 ```
 
 1. Clone the repo and run the installer as root:
 
 ```bash
-git clone https://github.com/your-org/template-appliance.git /opt/template-appliance
-cd /opt/template-appliance
+git clone https://github.com/your-org/github-runner.git /opt/runner
+cd /opt/runner
 sudo ./scripts/install.sh
 ```

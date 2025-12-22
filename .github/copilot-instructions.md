@@ -1,4 +1,4 @@
-# GitHub Copilot instructions (template-appliance)
+# GitHub Copilot instructions (runner)
 
 These instructions describe how this repo is structured, how CI runs, and what “good changes” look like.
 
@@ -6,7 +6,7 @@ If anything here conflicts with an explicit user request in the chat, follow the
 
 ## 1) What this repo is
 
-`template-appliance` is a Bash-first skeleton project that ships scripts + systemd units for a generic appliance with a primary mode, a secondary mode, and a healthcheck-based failover.
+`runner` is a Bash-first appliance project that ships scripts + systemd units for running a single GitHub Actions self-hosted runner.
 
 The codebase emphasizes:
 - Script correctness and predictable behavior under `set -euo pipefail`
@@ -23,7 +23,7 @@ Preferred ways to run things:
 - One CI part: `./scripts/ci.sh lint-sh` (or other part names)
 - Make targets (when available): `make lint`, `make test-unit`, `make test-integration`, `make ci`
 
-The Makefile runs commands inside a Docker devcontainer image (`template-appliance-devcontainer:local`). If `docker` isn’t available, the Makefile may fall back to running locally.
+The Makefile runs commands inside a Docker devcontainer image (`runner-devcontainer:local`). If `docker` isn’t available, the Makefile may fall back to running locally.
 
 ## 3) CI/router model (important)
 

@@ -5,19 +5,11 @@ set -euo pipefail
 
 appliance_config_env_path() {
   # Location of the config.env file.
-  # Tests can override with APPLIANCE_CONFIG_ENV.
-  local configured="${APPLIANCE_CONFIG_ENV:-}"
-  if [[ -n "$configured" ]]; then
-    if declare -F cover_path > /dev/null 2>&1; then
-      cover_path "lib-config:env-override"
-    fi
-    echo "$configured"
-    return 0
-  fi
+  # Contract: all configuration comes from /etc/runner/config.env.
   if declare -F cover_path > /dev/null 2>&1; then
     cover_path "lib-config:env-default"
   fi
-  appliance_path "/etc/template-appliance/config.env"
+  appliance_path "/etc/runner/config.env"
 }
 
 load_config_env() {

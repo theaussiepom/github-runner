@@ -4,10 +4,8 @@ Short definitions for terms used across the docs.
 
 ## Appliance concepts
 
-- **Mode**: One of the mutually-exclusive runtime states managed by systemd.
-- **Primary mode**: The main workload, run by `template-appliance-primary.service`.
-- **Secondary mode**: The fallback workload, run by `template-appliance-secondary.service`.
-- **Failover**: Automatically starting secondary mode if primary mode is not active.
+- **Bootstrap**: The first-boot script that fetches/clones a pinned repo ref and runs the installer.
+- **Install marker**: A file (default: `/var/lib/runner/installed`) that prevents rerunning install.
 - **Repo pinning**: Installing from a specific branch/tag/commit via `APPLIANCE_REPO_URL` + `APPLIANCE_REPO_REF`.
 
 ## Linux + systemd
@@ -19,6 +17,17 @@ Short definitions for terms used across the docs.
 - **ConditionPathExists**: A directive that conditions unit start on a path existing (or not existing).
 - **journald**: The system logging daemon used by systemd.
 - **journalctl**: The command used to read logs from journald.
+
+## GitHub runner
+
+- **Container hooks**: A GitHub Actions runner integration point configured via
+  `ACTIONS_RUNNER_CONTAINER_HOOKS`. The runner invokes a hook script with a JSON payload and expects a
+  JSON response written to a response file.
+
+## Isolation
+
+- **systemd-nspawn**: A lightweight container manager that can boot a full userspace with a systemd
+  PID1 inside a guest.
 
 ## Repo tooling
 
