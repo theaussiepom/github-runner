@@ -15,7 +15,7 @@
   "[shellscript]": {
     "editor.defaultFormatter": "mkhl.shfmt"
   },
-  "shfmt.executablePath": "shfmt",
+  "shfmt.executablePath": "${workspaceFolder}/scripts/dev/shfmt.sh",
   "shfmt.flags": [
     "-i",
     "2",

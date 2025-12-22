@@ -123,4 +123,4 @@ format-shell:
 	  exit 0; \
 	fi; \
 	echo "Formatting shell scripts with shfmt..."; \
-	shfmt -w -i 2 -ci -sr "$${files[@]}"
+	./scripts/dev/shfmt.sh -w -i 2 -ci -sr "$${files[@]}"

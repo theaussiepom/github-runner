@@ -4,26 +4,39 @@ runner is configured via `/etc/runner/config.env`.
 
 Notes:
 
-- `APPLIANCE_REPO_URL` + `APPLIANCE_REPO_REF` are required for first-boot installs (bootstrap clones the repo).
+- `RUNNER_BOOTSTRAP_REPO_URL` + `RUNNER_BOOTSTRAP_REPO_REF` tell the host where to `git clone` this installer from.
+  Use your fork URL if you maintain one.
+  If you omit them, bootstrap defaults to this repo on `main`.
 - A line like `FOO=` means “set but empty”.
+
+If you’re not sure what to put in here:
+
+- Start with the “Minimal” example.
+- Then only add the options you actually need.
 
 ---
 
 ## 1) Minimal: pin the repo
 
 ```bash
-# Required: bootstrap pin
-APPLIANCE_REPO_URL=https://github.com/your-org/github-runner.git
-APPLIANCE_REPO_REF=main
+# Preferred: bootstrap pin
+RUNNER_BOOTSTRAP_REPO_URL=https://github.com/your-org/github-runner.git
+RUNNER_BOOTSTRAP_REPO_REF=main
 ```
+
+What this does:
+
+- On first boot, runner’s bootstrap script clones `RUNNER_BOOTSTRAP_REPO_URL` at `RUNNER_BOOTSTRAP_REPO_REF` and
+  runs the installer from that checkout.
+- Pinning to a tag or commit is the easiest way to make installs repeatable.
 
 ---
 
 ## 2) Deterministic installs: pin to a tag or commit SHA
 
 ```bash
-APPLIANCE_REPO_URL=https://github.com/your-org/github-runner.git
-APPLIANCE_REPO_REF=v0.1.0
+RUNNER_BOOTSTRAP_REPO_URL=https://github.com/your-org/github-runner.git
+RUNNER_BOOTSTRAP_REPO_REF=v0.1.0
 ```
 
 ---
@@ -31,8 +44,8 @@ APPLIANCE_REPO_REF=v0.1.0
 ## 3) Customize checkout, install packages, and nspawn settings
 
 ```bash
-APPLIANCE_REPO_URL=https://github.com/your-org/github-runner.git
-APPLIANCE_REPO_REF=main
+RUNNER_BOOTSTRAP_REPO_URL=https://github.com/your-org/github-runner.git
+RUNNER_BOOTSTRAP_REPO_REF=main
 
 # Where bootstrap clones the repo
 APPLIANCE_CHECKOUT_DIR=/opt/runner
@@ -50,3 +63,8 @@ RUNNER_NSPAWN_BASE_ROOTFS=/var/lib/runner/nspawn/base-rootfs
 RUNNER_NSPAWN_BIND="/dev/dri:/dev/dri"
 RUNNER_NSPAWN_BIND_RO="/etc/resolv.conf:/etc/resolv.conf"
 ```
+
+Tips:
+
+- `APPLIANCE_APT_PACKAGES` is for anything you want available on the host (for example `jq`).
+- The `RUNNER_NSPAWN_BIND*` settings are useful when your jobs need access to a specific device or host file.

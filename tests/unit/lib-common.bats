@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+# shellcheck disable=SC1091
 load '../helpers/common.bash'
 
 setup() {
@@ -109,8 +110,8 @@ EOF
 
 @test "lib-common: record_call primary/append present and absent" {
 	# Present
-	APPLIANCE_CALLS_FILE="$TEST_ROOT/calls.primary.log"
-	APPLIANCE_CALLS_FILE_APPEND="$TEST_ROOT/calls.append.log"
+	export APPLIANCE_CALLS_FILE="$TEST_ROOT/calls.primary.log"
+	export APPLIANCE_CALLS_FILE_APPEND="$TEST_ROOT/calls.append.log"
 	record_call "hello"
 	assert_file_contains "$TEST_ROOT/calls.primary.log" "hello"
 	assert_file_contains "$TEST_ROOT/calls.append.log" "hello"
@@ -121,12 +122,12 @@ EOF
 }
 
 @test "lib-common: run_cmd dry-run vs exec" {
-	APPLIANCE_DRY_RUN=1
+	export APPLIANCE_DRY_RUN=1
 	run run_cmd echo hi
 	[ "$status" -eq 0 ]
 	assert_file_contains "$APPLIANCE_CALLS_FILE" "echo hi"
 
-	APPLIANCE_DRY_RUN=0
+	export APPLIANCE_DRY_RUN=0
 	run run_cmd bash -c 'exit 0'
 	[ "$status" -eq 0 ]
 }

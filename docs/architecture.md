@@ -1,9 +1,16 @@
 # Architecture
 
+This document explains how runner fits together, in plain language.
+
 runner is a systemd-managed appliance for running a single GitHub Actions self-hosted runner.
 
-The runner process lives on the host, but job execution is intended to run inside an ephemeral
-`systemd-nspawn` guest (systemd PID1 semantics).
+The runner process lives on the host.
+When a workflow runs job steps “in a container”, those steps are intended to run inside an ephemeral
+`systemd-nspawn` guest.
+
+If `systemd-nspawn` is new to you: it’s a lightweight way to boot a small Linux userspace
+with systemd as PID 1.
+In this repo we create the guest for a job, run the step(s), then throw the guest away.
 
 ## Glossary
 
@@ -14,6 +21,11 @@ See [Glossary](glossary.md).
 - Keep host lifecycle predictable (systemd unit for install, systemd unit for runner).
 - Make first-boot installs idempotent and retryable.
 - Avoid Docker at runtime by routing containerized jobs through `systemd-nspawn`.
+
+Non-goals (helpful framing):
+
+- This is not a multi-runner fleet manager.
+- This is not trying to replace GitHub Actions; it’s a runner installation with a strict runtime model.
 
 ## High-level component map
 
@@ -79,7 +91,7 @@ sequenceDiagram
   alt already installed
     BOOT-->>SD: exit 0
   else not installed
-    BOOT->>REPO: clone/fetch APPLIANCE_REPO_URL@APPLIANCE_REPO_REF
+    BOOT->>REPO: clone/fetch RUNNER_BOOTSTRAP_REPO_URL@RUNNER_BOOTSTRAP_REPO_REF
     BOOT->>INST: exec installer from checkout
     INST-->>SD: enable units, write installed marker
   end
@@ -96,8 +108,9 @@ sudo systemctl restart runner-install.service
 
 `runner-service.sh` sets `ACTIONS_RUNNER_CONTAINER_HOOKS` when `container-hooks.sh` is present.
 
-This is intended to allow the runner to execute containerized jobs without Docker by routing the hook
-callbacks through `ci-nspawn-run`.
+This is intended to allow the runner to execute containerized jobs without Docker.
+The runner calls the hook script with a small JSON payload; our hook implementation translates that
+into a `ci-nspawn-run` invocation.
 
 Limitations:
 

@@ -106,7 +106,7 @@ kcov_wrap_run() {
   fi
   args+=(
     --include-path="$REPO_ROOT/scripts"
-    --exclude-pattern="$REPO_ROOT/tests,$REPO_ROOT/tests/vendor,$REPO_ROOT/scripts/ci.sh,$REPO_ROOT/scripts/ci"
+    --exclude-pattern="$REPO_ROOT/tests,$REPO_ROOT/tests/vendor,$REPO_ROOT/scripts/dev,$REPO_ROOT/scripts/ci.sh,$REPO_ROOT/scripts/ci"
   )
 
   local arg_order="${KCOV_ARG_ORDER:-opts_first}"
@@ -152,7 +152,7 @@ kcov_wrap_run_stdin() {
   fi
   args+=(
     --include-path="$REPO_ROOT/scripts"
-    --exclude-pattern="$REPO_ROOT/tests,$REPO_ROOT/tests/vendor,$REPO_ROOT/scripts/ci.sh,$REPO_ROOT/scripts/ci"
+    --exclude-pattern="$REPO_ROOT/tests,$REPO_ROOT/tests/vendor,$REPO_ROOT/scripts/dev,$REPO_ROOT/scripts/ci.sh,$REPO_ROOT/scripts/ci"
   )
 
   local arg_order="${KCOV_ARG_ORDER:-opts_first}"
@@ -305,8 +305,6 @@ ln -sf "$REPO_ROOT/scripts/uninstall.sh" "$no_lib_dir/uninstall.sh"
 
 # bootstrap.sh: hit key branches without touching the network.
 export APPLIANCE_DRY_RUN=1
-export APPLIANCE_REPO_URL="https://example.invalid/repo.git"
-export APPLIANCE_REPO_REF="deadbeef"
 export APPLIANCE_CHECKOUT_DIR="$tmp_dir/checkout"
 
 # installed marker early return
@@ -317,12 +315,17 @@ kcov_wrap_run "bootstrap-installed" "$REPO_ROOT/scripts/bootstrap.sh" >/dev/null
 rm -f "$marker"
 
 # missing repo url / ref
-unset -v APPLIANCE_REPO_URL
-( set +e; kcov_wrap_run "bootstrap-missing-url" "$REPO_ROOT/scripts/bootstrap.sh"; exit 0 ) >/dev/null 2>&1 || true
-export APPLIANCE_REPO_URL="https://example.invalid/repo.git"
-unset -v APPLIANCE_REPO_REF
-( set +e; kcov_wrap_run "bootstrap-missing-ref" "$REPO_ROOT/scripts/bootstrap.sh"; exit 0 ) >/dev/null 2>&1 || true
-export APPLIANCE_REPO_REF="deadbeef"
+unset -v RUNNER_BOOTSTRAP_REPO_URL RUNNER_BOOTSTRAP_REPO_REF
+
+# Default repo url/ref branch (will proceed until installer is missing).
+( set +e; kcov_wrap_run "bootstrap-default-repo" "$REPO_ROOT/scripts/bootstrap.sh"; exit 0 ) >/dev/null 2>&1 || true
+
+# Preferred env var names.
+export RUNNER_BOOTSTRAP_REPO_URL="https://example.invalid/repo.git"
+export RUNNER_BOOTSTRAP_REPO_REF="deadbeef"
+( set +e; kcov_wrap_run "bootstrap-runner-bootstrap-repo" "$REPO_ROOT/scripts/bootstrap.sh"; exit 0 ) >/dev/null 2>&1 || true
+
+unset -v RUNNER_BOOTSTRAP_REPO_URL RUNNER_BOOTSTRAP_REPO_REF
 
 # Force network failure via stubs by overriding curl for this one run.
 old_path="$PATH"
@@ -370,11 +373,76 @@ export APPLIANCE_DRY_RUN=1
 
 # install.sh: cover key branches without side effects (DRY_RUN + stubs).
 export APPLIANCE_DRY_RUN=1
+
+# Ensure install.sh dependency logic is deterministic by controlling PATH.
+# We cannot include /usr/bin or /bin because that would leak real systemd-nspawn,
+# so build an isolated PATH with a minimal set of core tools + stubs.
+make_isolated_path_dir() {
+  local dir="$1"
+  shift
+  mkdir -p "$dir"
+
+  local core_tools=(
+    env bash sh
+    cat rm mkdir rmdir mv cp ln chmod touch
+    cut grep sed awk tr sort
+    date mktemp head tail sleep
+  )
+
+  local t src
+  for t in "${core_tools[@]}"; do
+    src=""
+    if [[ -x "/bin/$t" ]]; then
+      src="/bin/$t"
+    elif [[ -x "/usr/bin/$t" ]]; then
+      src="/usr/bin/$t"
+    fi
+    if [[ -n "$src" ]]; then
+      ln -sf "$src" "$dir/$t"
+    fi
+  done
+
+  local stub
+  for stub in "$@"; do
+    ln -sf "$REPO_ROOT/tests/stubs/$stub" "$dir/$stub"
+  done
+}
+
+install_path_no_nspawn="$tmp_dir/install-path-no-nspawn"
+make_isolated_path_dir "$install_path_no_nspawn" apt-cache dirname flock id getent
+
+install_path_no_apt_cache="$tmp_dir/install-path-no-apt-cache"
+make_isolated_path_dir "$install_path_no_apt_cache" dirname flock id getent
+
+install_path_with_nspawn="$tmp_dir/install-path-with-nspawn"
+make_isolated_path_dir "$install_path_with_nspawn" apt-cache dirname flock id getent systemd-nspawn
 export APPLIANCE_ALLOW_NON_ROOT=1
 export APPLIANCE_INSTALLED_MARKER="$tmp_dir/install.marker"
 export APPLIANCE_INSTALL_LOCK="$tmp_dir/install.lock"
 rm -f "$APPLIANCE_INSTALLED_MARKER" "$APPLIANCE_INSTALL_LOCK"
-kcov_wrap_run "install-full-dry-run" "$REPO_ROOT/scripts/install.sh" >/dev/null 2>&1 || true
+
+install_full_dry_run_helper="$tmp_dir/install-full-dry-run-helper.sh"
+cat >"$install_full_dry_run_helper" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$install_path_no_nspawn"
+export APT_CACHE_HAS_SYSTEMD_CONTAINER=1
+source "$REPO_ROOT/scripts/install.sh"
+main
+EOF
+chmod +x "$install_full_dry_run_helper"
+kcov_wrap_run "install-full-dry-run" "$install_full_dry_run_helper" >/dev/null 2>&1 || true
+
+install_no_apt_cache_helper="$tmp_dir/install-no-apt-cache-helper.sh"
+cat >"$install_no_apt_cache_helper" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$install_path_no_apt_cache"
+source "$REPO_ROOT/scripts/install.sh"
+main
+EOF
+chmod +x "$install_no_apt_cache_helper"
+( set +e; kcov_wrap_run "install-no-apt-cache" "$install_no_apt_cache_helper"; exit 0 ) >/dev/null 2>&1 || true
 
 # marker present early
 printf '%s\n' ok >"$APPLIANCE_INSTALLED_MARKER"
@@ -397,7 +465,32 @@ unset -v APPLIANCE_ALLOW_NON_ROOT
 export APPLIANCE_EUID_OVERRIDE=0
 export ID_APPLIANCE_EXISTS=0
 export APPLIANCE_APT_PACKAGES="jq mosquitto-clients"
-kcov_wrap_run "install-root-ok-user-created" "$REPO_ROOT/scripts/install.sh" >/dev/null 2>&1 || true
+
+# Cover systemd-nspawn present branch.
+install_root_ok_with_nspawn_helper="$tmp_dir/install-root-ok-with-nspawn-helper.sh"
+cat >"$install_root_ok_with_nspawn_helper" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$install_path_with_nspawn"
+export APT_CACHE_HAS_SYSTEMD_CONTAINER=0
+source "$REPO_ROOT/scripts/install.sh"
+main
+EOF
+chmod +x "$install_root_ok_with_nspawn_helper"
+kcov_wrap_run "install-root-ok-user-created" "$install_root_ok_with_nspawn_helper" >/dev/null 2>&1 || true
+
+# Cover systemd-container unavailable branch when systemd-nspawn is missing.
+install_root_ok_no_nspawn_helper="$tmp_dir/install-root-ok-no-nspawn-helper.sh"
+cat >"$install_root_ok_no_nspawn_helper" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$install_path_no_nspawn"
+export APT_CACHE_HAS_SYSTEMD_CONTAINER=0
+source "$REPO_ROOT/scripts/install.sh"
+main
+EOF
+chmod +x "$install_root_ok_no_nspawn_helper"
+kcov_wrap_run "install-root-ok-user-created-no-nspawn" "$install_root_ok_no_nspawn_helper" >/dev/null 2>&1 || true
 unset -v APPLIANCE_EUID_OVERRIDE ID_APPLIANCE_EXISTS APPLIANCE_APT_PACKAGES
 
 # root-required branch

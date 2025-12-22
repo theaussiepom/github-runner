@@ -10,13 +10,15 @@
 
 This repo treats the devcontainer as the canonical “clean room” environment.
 
-If you haven’t used devcontainers before: it’s just a Docker image that contains all the lint/test tools this repo
-expects. Running CI inside it means we all see the same results (instead of “works on my machine”).
+If you haven’t used devcontainers before, don’t worry: it’s a Docker image with all the tools this repo expects
+(shellcheck, shfmt, bats, kcov, markdownlint, systemd-analyze, etc.).
+Running CI inside it means we all see the same results, instead of “works on my machine”.
 
-Before opening (or updating) a PR, you must run the full pipeline in the devcontainer and ensure it passes.
+Before opening (or updating) a PR, please run the full pipeline in the devcontainer and make sure it’s green.
 
-Why so strict? Most of the code here is Bash + systemd glue, and tiny differences in tool versions (shellcheck,
-kcov, markdownlint, systemd-analyze) can change results. The devcontainer keeps reviews and CI predictable.
+Why so strict? Most of the code here is Bash + systemd glue.
+Small differences in tool versions can change lint results and even test behavior.
+The devcontainer keeps reviews and CI predictable.
 
 ### CI pipeline at a glance
 
@@ -36,7 +38,7 @@ flowchart LR
 The pipeline is split into stages so you can run the part you’re working on without waiting for everything.
 
 - `lint-sh`: sanity checks for shell scripts (syntax, shellcheck, formatting).
-  This catches common Bash footguns before you even boot a Pi.
+  This catches common Bash footguns before you deploy it onto a host.
 - `lint-yaml`: lints YAML files (cloud-init examples and GitHub workflow config).
 - `lint-systemd`: verifies `systemd` unit files.
   This doesn’t start services; it checks the unit files are valid and consistent.
@@ -56,7 +58,7 @@ The pipeline is split into stages so you can run the part you’re working on wi
 ./scripts/ci.sh
 ```
 
-That is the same pipeline GitHub CI uses.
+That runs the same pipeline GitHub Actions runs for this repo.
 
 ### Option B: Docker CLI (no VS Code)
 
@@ -91,11 +93,11 @@ You can run individual stages by name:
 
 ### Local runs (non-devcontainer)
 
-You can run locally with:
+If you already have the toolchain installed on your machine, you can also run:
 
 ```bash
 make ci
 ```
 
-Local environments can drift (tool versions, missing dependencies). If local results differ from CI, trust the
-devcontainer result and treat local runs as “best effort”.
+Local environments can drift (tool versions, missing dependencies).
+If local results differ from CI, trust the devcontainer/CI result and treat local runs as “best effort”.

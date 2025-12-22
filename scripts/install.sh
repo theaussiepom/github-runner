@@ -52,6 +52,36 @@ install_packages() {
   # Keep the base set minimal. Extend your appliance by adding packages as needed.
   run_cmd apt-get update
 
+  apt_pkg_available() {
+    local pkg="$1"
+    if ! command -v apt-cache > /dev/null 2>&1; then
+      return 1
+    fi
+    if apt-cache show "$pkg" > /dev/null 2>&1; then
+      cover_path "install:apt-pkg-available"
+      return 0
+    fi
+    cover_path "install:apt-pkg-unavailable"
+    return 1
+  }
+
+  local -a base_pkgs=(ca-certificates curl git jq)
+
+  # If systemd-nspawn isn't present, try to install it when it's installable.
+  # This avoids surprising runtime failures when workflows use job containers.
+  local -a auto_pkgs=()
+  if ! command -v systemd-nspawn > /dev/null 2>&1; then
+    cover_path "install:missing-systemd-nspawn"
+    if apt_pkg_available systemd-container; then
+      cover_path "install:auto-install-systemd-container"
+      auto_pkgs+=(systemd-container)
+    else
+      cover_path "install:auto-install-systemd-container-unavailable"
+    fi
+  else
+    cover_path "install:has-systemd-nspawn"
+  fi
+
   extra_pkgs=()
   if [[ -n "${APPLIANCE_APT_PACKAGES:-}" ]]; then
     # Space-separated list; intended for simple usage (e.g. "jq mosquitto-clients").
@@ -59,10 +89,8 @@ install_packages() {
   fi
 
   run_cmd apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    git \
-    jq \
+    "${base_pkgs[@]}" \
+    "${auto_pkgs[@]}" \
     "${extra_pkgs[@]}"
 }
 

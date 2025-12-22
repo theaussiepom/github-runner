@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+# shellcheck disable=SC1091
 load '../helpers/common.bash'
 
 setup() {
