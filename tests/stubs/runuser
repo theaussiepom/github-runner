@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Stub for runuser used in tests/coverage.
+# We only need to record the call; in DRY_RUN mode callers won't actually execute it.
+echo "runuser $*" >>"${APPLIANCE_CALLS_FILE:-/dev/null}" || true
+exit 0
