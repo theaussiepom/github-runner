@@ -63,7 +63,7 @@ That is the same pipeline GitHub CI uses.
 Build the devcontainer image:
 
 ```bash
-docker build -t template-appliance-devcontainer -f .devcontainer/Dockerfile .
+docker build -t runner-devcontainer -f .devcontainer/Dockerfile .
 ```
 
 Run the full pipeline inside it:
@@ -72,7 +72,7 @@ Run the full pipeline inside it:
 docker run --rm \
   -v "$PWD:/work" \
   -w /work \
-  template-appliance-devcontainer \
+  runner-devcontainer \
   bash -lc './scripts/ci.sh'
 ```
 

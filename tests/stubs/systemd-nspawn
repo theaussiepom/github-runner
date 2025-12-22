@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "systemd-nspawn $*" >>"${APPLIANCE_CALLS_FILE:-/dev/null}" || true
+
+# Pretend to stay alive briefly if invoked in background.
+# When used with '&', the caller will manage the PID.
+if [[ "${SYSTEMD_NSPAWN_SLEEP_S:-}" != "" ]]; then
+	sleep "${SYSTEMD_NSPAWN_SLEEP_S}"
+fi
+
+exit 0

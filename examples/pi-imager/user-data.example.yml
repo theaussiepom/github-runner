@@ -4,30 +4,32 @@
 # Copy/adjust for your environment.
 
 write_files:
-  - path: /etc/template-appliance/config.env
+  - path: /etc/runner/config.env
     permissions: "0644"
     content: |
       # Core config (required)
-      APPLIANCE_REPO_URL=https://github.com/your-org/template-appliance.git
+      APPLIANCE_REPO_URL=https://github.com/your-org/github-runner.git
       APPLIANCE_REPO_REF=main
 
-      # App config (examples)
-      APPLIANCE_PRIMARY_CMD='echo "primary"; sleep infinity'
-      APPLIANCE_SECONDARY_CMD='echo "secondary"; sleep infinity'
+      # Optional: where to clone to
+      # APPLIANCE_CHECKOUT_DIR=/opt/runner
 
-  - path: /usr/local/lib/template-appliance/bootstrap.sh
+      # Runner installation location
+      # RUNNER_ACTIONS_RUNNER_DIR=/opt/runner/actions-runner
+
+  - path: /usr/local/lib/runner/bootstrap.sh
     permissions: "0755"
     content: |
       #!/usr/bin/env bash
       set -euo pipefail
 
-      log() { echo "template-appliance bootstrap: $*" >&2; }
+      log() { echo "runner bootstrap: $*" >&2; }
       die() { log "$*"; exit 1; }
       require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"; }
       network_ok() { getent hosts github.com >/dev/null 2>&1 && curl -fsS https://github.com >/dev/null 2>&1; }
 
       main() {
-        if [[ -f /var/lib/template-appliance/installed ]]; then
+        if [[ -f /var/lib/runner/installed ]]; then
           log "Marker present; nothing to do."
           exit 0
         fi
@@ -44,7 +46,7 @@ write_files:
         [[ -n "$repo_url" ]] || die "APPLIANCE_REPO_URL is required"
         [[ -n "$repo_ref" ]] || die "APPLIANCE_REPO_REF is required"
 
-        local checkout_dir="${APPLIANCE_CHECKOUT_DIR:-/opt/template-appliance}"
+        local checkout_dir="${APPLIANCE_CHECKOUT_DIR:-/opt/runner}"
         if [[ ! -d "$checkout_dir/.git" ]]; then
           log "Cloning $repo_url -> $checkout_dir"
           rm -rf "$checkout_dir"
@@ -64,19 +66,19 @@ write_files:
 
       main "$@"
 
-  - path: /etc/systemd/system/template-appliance-install.service
+  - path: /etc/systemd/system/runner-install.service
     permissions: "0644"
     content: |
       [Unit]
-      Description=template-appliance one-time installer
+      Description=runner first-boot installer
       Wants=network-online.target
       After=network-online.target
-      ConditionPathExists=!/var/lib/template-appliance/installed
+      ConditionPathExists=!/var/lib/runner/installed
 
       [Service]
       Type=oneshot
-      EnvironmentFile=-/etc/template-appliance/config.env
-      ExecStart=/usr/local/lib/template-appliance/bootstrap.sh
+      EnvironmentFile=-/etc/runner/config.env
+      ExecStart=/usr/local/lib/runner/bootstrap.sh
       Restart=on-failure
       RestartSec=30
       StartLimitIntervalSec=0
@@ -93,4 +95,4 @@ runcmd:
     - systemctl daemon-reload
   - - bash
     - -lc
-    - systemctl enable --now template-appliance-install.service
+    - systemctl enable --now runner-install.service

@@ -39,6 +39,28 @@ appliance_root() {
   # Filesystem root prefix for tests.
   # Use APPLIANCE_ROOT="$TEST_ROOT" to make scripts operate within a fake FS.
   local root="${APPLIANCE_ROOT:-/}"
+
+  if [[ -n "${APPLIANCE_ROOT:-}" ]]; then
+    # Guard against common misquoting mistakes that can create junk directories
+    # in the current working directory (e.g. '"mp_dir/work"').
+    if [[ "$root" != /* ]]; then
+      appliance__cover_path_raw "lib-common:root-invalid-relative"
+      if [[ "$(type -t die || true)" == "function" ]]; then
+        die "APPLIANCE_ROOT must be an absolute path: $root"
+      fi
+      echo "APPLIANCE_ROOT must be an absolute path: $root" >&2
+      return 1
+    fi
+    if [[ "$root" == *'"'* || "$root" == *"'"* ]]; then
+      appliance__cover_path_raw "lib-common:root-invalid-quote"
+      if [[ "$(type -t die || true)" == "function" ]]; then
+        die "APPLIANCE_ROOT must not contain quote characters: $root"
+      fi
+      echo "APPLIANCE_ROOT must not contain quote characters: $root" >&2
+      return 1
+    fi
+  fi
+
   # Normalize trailing slash (keep '/' as-is).
   if [[ "$root" != "/" ]]; then
     appliance__cover_path_raw "lib-common:root-non-slash"

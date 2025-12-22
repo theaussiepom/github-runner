@@ -4,7 +4,7 @@ load '../helpers/common.bash'
 
 setup() {
 	setup_test_root
-	write_config_env 'APPLIANCE_LOG_PREFIX="template-appliance"'
+	write_config_env 'APPLIANCE_LOG_PREFIX="runner"'
 }
 
 teardown() {
@@ -24,7 +24,7 @@ teardown() {
 
 @test "install: marker present early" {
 	write_config_env ''
-	touch "$TEST_ROOT/var/lib/template-appliance/installed"
+	touch "$TEST_ROOT/var/lib/runner/installed"
 	run env APPLIANCE_ALLOW_NON_ROOT=1 APPLIANCE_DRY_RUN=1 bash "$APPLIANCE_REPO_ROOT/scripts/install.sh"
 	[ "$status" -eq 0 ]
 }
@@ -37,7 +37,7 @@ teardown() {
 
 @test "install: marker appears while waiting for lock" {
 	write_config_env ''
-	marker="$TEST_ROOT/var/lib/template-appliance/installed"
+	marker="$TEST_ROOT/var/lib/runner/installed"
 	APPLIANCE_STUB_FLOCK_EXIT_CODE=0 APPLIANCE_STUB_FLOCK_TOUCH_MARKER=1 APPLIANCE_INSTALLED_MARKER="$marker" run env APPLIANCE_ALLOW_NON_ROOT=1 APPLIANCE_DRY_RUN=1 bash "$APPLIANCE_REPO_ROOT/scripts/install.sh"
 	[ "$status" -eq 0 ]
 }
@@ -57,7 +57,7 @@ teardown() {
 }
 
 @test "install: write_marker dry-run vs write" {
-	marker="$TEST_ROOT/var/lib/template-appliance/installed"
+	marker="$TEST_ROOT/var/lib/runner/installed"
 	run bash -c "set -euo pipefail; export APPLIANCE_ROOT=\"$TEST_ROOT\"; export APPLIANCE_DRY_RUN=1; export APPLIANCE_INSTALLED_MARKER=\"$marker\"; source \"$APPLIANCE_REPO_ROOT/scripts/install.sh\"; write_marker"
 	[ "$status" -eq 0 ]
 

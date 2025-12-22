@@ -17,7 +17,7 @@ bootstrap_script() {
 }
 
 @test "bootstrap: installed marker exits early" {
-	touch "$TEST_ROOT/var/lib/template-appliance/installed"
+	touch "$TEST_ROOT/var/lib/runner/installed"
 	run env APPLIANCE_DRY_RUN=1 bash "$(bootstrap_script)"
 	[ "$status" -eq 0 ]
 }
@@ -42,7 +42,7 @@ bootstrap_script() {
 
 @test "bootstrap: clone path and installer dry-run" {
 	write_config_env $'APPLIANCE_REPO_URL="https://example.invalid/repo"\nAPPLIANCE_REPO_REF="main"'
-	checkout_dir="$TEST_ROOT/opt/template-appliance"
+	checkout_dir="$TEST_ROOT/opt/runner"
 	mkdir -p "$checkout_dir/scripts"
 	cat >"$checkout_dir/scripts/install.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -56,7 +56,7 @@ EOF
 
 @test "bootstrap: reuse checkout path and installer dry-run" {
 	write_config_env $'APPLIANCE_REPO_URL="https://example.invalid/repo"\nAPPLIANCE_REPO_REF="main"'
-	checkout_dir="$TEST_ROOT/opt/template-appliance"
+	checkout_dir="$TEST_ROOT/opt/runner"
 	mkdir -p "$checkout_dir/.git" "$checkout_dir/scripts"
 	cat >"$checkout_dir/scripts/install.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -70,7 +70,7 @@ EOF
 
 @test "bootstrap: installer missing" {
 	write_config_env $'APPLIANCE_REPO_URL="https://example.invalid/repo"\nAPPLIANCE_REPO_REF="main"'
-	checkout_dir="$TEST_ROOT/opt/template-appliance"
+	checkout_dir="$TEST_ROOT/opt/runner"
 	mkdir -p "$checkout_dir/.git"
 
 	GETENT_HOSTS_EXIT_CODE=0 CURL_EXIT_CODE=0 run env APPLIANCE_DRY_RUN=1 APPLIANCE_CHECKOUT_DIR="$checkout_dir" bash "$(bootstrap_script)"
@@ -79,7 +79,7 @@ EOF
 
 @test "bootstrap: installer exec" {
 	write_config_env $'APPLIANCE_REPO_URL="https://example.invalid/repo"\nAPPLIANCE_REPO_REF="main"'
-	checkout_dir="$TEST_ROOT/opt/template-appliance"
+	checkout_dir="$TEST_ROOT/opt/runner"
 	mkdir -p "$checkout_dir/.git" "$checkout_dir/scripts"
 	cat >"$checkout_dir/scripts/install.sh" <<'EOF'
 #!/usr/bin/env bash

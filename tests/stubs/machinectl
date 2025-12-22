@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "machinectl $*" >>"${APPLIANCE_CALLS_FILE:-/dev/null}" || true
+
+# Minimal behavior for ci-nspawn-run waiting.
+if [[ "${1:-}" == "show" ]]; then
+	# Default to "not found" so tests can exercise the timeout branch.
+	exit "${MACHINECTL_SHOW_EXIT_CODE:-1}"
+fi
+
+exit 0

@@ -16,7 +16,7 @@ if [[ -d "$SCRIPT_DIR/lib" ]]; then
 elif [[ -d "$SCRIPT_DIR/../lib" ]]; then
   LIB_DIR="$SCRIPT_DIR/../lib"
 else
-  echo "template-appliance bootstrap [error]: unable to locate scripts/lib" >&2
+  echo "runner bootstrap [error]: unable to locate scripts/lib" >&2
   exit 1
 fi
 
@@ -33,10 +33,10 @@ network_ok() {
 }
 
 main() {
-  export APPLIANCE_LOG_PREFIX="template-appliance bootstrap"
+  export APPLIANCE_LOG_PREFIX="runner bootstrap"
 
   local installed_marker
-  installed_marker="${APPLIANCE_INSTALLED_MARKER:-$(appliance_path /var/lib/template-appliance/installed)}"
+  installed_marker="${APPLIANCE_INSTALLED_MARKER:-$(appliance_path /var/lib/runner/installed)}"
 
   if [[ -f "$installed_marker" ]]; then
     cover_path "bootstrap:installed-marker"
@@ -60,14 +60,14 @@ main() {
 
   if [[ -z "$repo_url" ]]; then
     cover_path "bootstrap:missing-repo-url"
-    die "APPLIANCE_REPO_URL is required (set in /etc/template-appliance/config.env)"
+    die "APPLIANCE_REPO_URL is required (set in /etc/runner/config.env)"
   fi
   if [[ -z "$repo_ref" ]]; then
     cover_path "bootstrap:missing-repo-ref"
     die "APPLIANCE_REPO_REF is required (branch/tag/commit)"
   fi
 
-  local checkout_dir="${APPLIANCE_CHECKOUT_DIR:-$(appliance_path /opt/template-appliance)}"
+  local checkout_dir="${APPLIANCE_CHECKOUT_DIR:-$(appliance_path /opt/runner)}"
 
   if [[ ! -d "$checkout_dir/.git" ]]; then
     cover_path "bootstrap:clone"

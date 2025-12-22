@@ -16,7 +16,7 @@ export BATS_LOAD_PATH="$ROOT_DIR/tests:$ROOT_DIR/tests/vendor"
 export BATS_LIB_PATH="$ROOT_DIR/tests/vendor:$ROOT_DIR/tests"
 
 # Stable path-coverage log shared across Bats invocations.
-PATHS_LOG="${APPLIANCE_PATHS_FILE:-$ROOT_DIR/tests/.tmp/template-appliance-paths.log}"
+PATHS_LOG="${APPLIANCE_PATHS_FILE:-$ROOT_DIR/tests/.tmp/runner-paths.log}"
 mkdir -p "$(dirname "$PATHS_LOG")"
 rm -f "$PATHS_LOG"
 export APPLIANCE_PATHS_FILE="$PATHS_LOG"

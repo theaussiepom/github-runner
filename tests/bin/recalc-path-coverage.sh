@@ -10,8 +10,8 @@ Usage: tests/bin/recalc-path-coverage.sh [--run|--no-run]
 
 Prints path-coverage counts derived from:
   - tests/coverage/required-paths.txt
-  - tests/.tmp/template-appliance-paths.unit.log
-  - tests/.tmp/template-appliance-paths.log
+  - tests/.tmp/runner-paths.unit.log
+  - tests/.tmp/runner-paths.log
 
 IDs are partitioned by convention:
   - unit owns IDs that start with "lib-"
@@ -36,8 +36,8 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 do_run=0
 required_file="$repo_root/tests/coverage/required-paths.txt"
-unit_log="$repo_root/tests/.tmp/template-appliance-paths.unit.log"
-integration_log="$repo_root/tests/.tmp/template-appliance-paths.log"
+unit_log="$repo_root/tests/.tmp/runner-paths.unit.log"
+integration_log="$repo_root/tests/.tmp/runner-paths.log"
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in

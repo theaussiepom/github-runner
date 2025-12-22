@@ -34,11 +34,9 @@ make_layout_with_parent_lib() {
 	# the fallback for each file to satisfy line coverage.
 	local scripts=(
 		"$APPLIANCE_REPO_ROOT/scripts/bootstrap.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/healthcheck.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/mode/primary-mode.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/mode/secondary-mode.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/mode/enter-primary-mode.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/mode/enter-secondary-mode.sh"
+		"$APPLIANCE_REPO_ROOT/scripts/ci-nspawn-run.sh"
+		"$APPLIANCE_REPO_ROOT/scripts/container-hooks.sh"
+		"$APPLIANCE_REPO_ROOT/scripts/runner-service.sh"
 	)
 
 	# Make bootstrap exit quickly.
@@ -52,17 +50,19 @@ make_layout_with_parent_lib() {
 				run env APPLIANCE_ROOT="$TEST_ROOT" APPLIANCE_INSTALLED_MARKER="$marker" APPLIANCE_DRY_RUN=1 bash "$layout_script"
 				[ "$status" -eq 0 ]
 				;;
-			healthcheck.sh)
-				run env APPLIANCE_ROOT="$TEST_ROOT" SYSTEMCTL_ACTIVE_PRIMARY=0 bash "$layout_script"
+			ci-nspawn-run.sh)
+				run env APPLIANCE_ROOT="$TEST_ROOT" APPLIANCE_DRY_RUN=1 bash "$layout_script" --help
 				[ "$status" -eq 0 ]
 				;;
-			primary-mode.sh|secondary-mode.sh)
-				run env APPLIANCE_ROOT="$TEST_ROOT" APPLIANCE_DRY_RUN=1 bash "$layout_script"
-				[ "$status" -eq 0 ]
+			container-hooks.sh)
+				run env APPLIANCE_ROOT="$TEST_ROOT" APPLIANCE_DRY_RUN=1 bash "$layout_script" </dev/null
+				[ "$status" -ne 0 ]
+				[[ "$output" != *"unable to locate scripts/lib"* ]]
 				;;
-			enter-primary-mode.sh|enter-secondary-mode.sh)
+			runner-service.sh)
 				run env APPLIANCE_ROOT="$TEST_ROOT" APPLIANCE_DRY_RUN=1 bash "$layout_script"
-				[ "$status" -eq 0 ]
+				[ "$status" -ne 0 ]
+				[[ "$output" != *"unable to locate scripts/lib"* ]]
 				;;
 			*)
 				false
@@ -74,11 +74,9 @@ make_layout_with_parent_lib() {
 @test "scripts: fail cleanly when libs cannot be located" {
 	local scripts=(
 		"$APPLIANCE_REPO_ROOT/scripts/bootstrap.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/healthcheck.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/mode/primary-mode.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/mode/secondary-mode.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/mode/enter-primary-mode.sh"
-		"$APPLIANCE_REPO_ROOT/scripts/mode/enter-secondary-mode.sh"
+		"$APPLIANCE_REPO_ROOT/scripts/ci-nspawn-run.sh"
+		"$APPLIANCE_REPO_ROOT/scripts/container-hooks.sh"
+		"$APPLIANCE_REPO_ROOT/scripts/runner-service.sh"
 	)
 
 	for s in "${scripts[@]}"; do
@@ -88,7 +86,8 @@ make_layout_with_parent_lib() {
 		cp "$s" "$base/bin/$name"
 		chmod +x "$base/bin/$name"
 
-		run env APPLIANCE_ROOT="$TEST_ROOT" bash "$base/bin/$name"
+		run env APPLIANCE_ROOT="$TEST_ROOT" bash "$base/bin/$name" 2>&1
 		[ "$status" -ne 0 ]
+		[[ "$output" == *"unable to locate scripts/lib"* ]]
 	done
 }

@@ -17,7 +17,7 @@ export BATS_LIB_PATH="$ROOT_DIR/tests/vendor:$ROOT_DIR/tests"
 
 # Enable suite-wide path-coverage logging for unit runs.
 # This allows us to measure which PATH ids are covered by unit tests.
-PATHS_LOG="${APPLIANCE_PATHS_FILE:-$ROOT_DIR/tests/.tmp/template-appliance-paths.unit.log}"
+PATHS_LOG="${APPLIANCE_PATHS_FILE:-$ROOT_DIR/tests/.tmp/runner-paths.unit.log}"
 mkdir -p "$(dirname "$PATHS_LOG")"
 rm -f "$PATHS_LOG"
 export APPLIANCE_PATHS_FILE="$PATHS_LOG"

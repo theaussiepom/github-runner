@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "systemd-run $*" >>"${APPLIANCE_CALLS_FILE:-/dev/null}" || true
+exit 0
