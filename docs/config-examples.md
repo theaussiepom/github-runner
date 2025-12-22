@@ -32,6 +32,31 @@ What this does:
 
 ---
 
+## 1b) Minimal end-to-end (SSH installs): install + configure the runner
+
+```bash
+# Optional: actions runner version to install.
+# Default: 2.330.0 (may not be the latest).
+# The GitHub “New self-hosted runner” page shows the current version in its commands.
+# RUNNER_ACTIONS_RUNNER_VERSION=2.330.0
+
+# GitHub URL to register against.
+# Registration token from GitHub UI: Settings → Actions → Runners → New self-hosted runner.
+# Use either:
+# - Repo runner: https://github.com/<owner>/<repo>
+# - Org runner:  https://github.com/<org>
+RUNNER_GITHUB_URL=
+
+# Registration token from GitHub UI: Settings → Actions → Runners → New self-hosted runner.
+# Note: short-lived (expires); not a PAT.
+RUNNER_REGISTRATION_TOKEN=
+
+# Optional: runner display name (defaults to hostname)
+# RUNNER_NAME=pi-runner
+```
+
+---
+
 ## 2) Deterministic installs: pin to a tag or commit SHA
 
 ```bash

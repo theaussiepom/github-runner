@@ -77,9 +77,13 @@ kcov_wrap_init() {
   fi
 
   kcov_wrap_enabled=1
-  kcov_parts_dir="${KCOV_WRAP_OUT_DIR}/kcov-parts"
-  rm -rf "$kcov_parts_dir" "${KCOV_WRAP_OUT_DIR}/kcov-merged"
-  mkdir -p "$kcov_parts_dir"
+
+  # IMPORTANT:
+  # Some environments (notably networked filesystems) can be flaky with deep
+  # recursive deletes and occasionally return "Directory not empty".
+  # To keep CI deterministic, avoid deleting previous runs and instead allocate
+  # a fresh parts directory per invocation.
+  kcov_parts_dir="$(mktemp -d "${KCOV_WRAP_OUT_DIR}/kcov-parts.XXXXXX")"
 }
 
 kcov_wrap_run() {
@@ -177,7 +181,10 @@ kcov_wrap_merge() {
   if [[ "$kcov_wrap_enabled" != "1" ]]; then
     return 0
   fi
-  mkdir -p "${KCOV_WRAP_OUT_DIR}/kcov-merged"
+  # Merge into a fresh directory, then atomically swap into place.
+  local merged_out="${KCOV_WRAP_OUT_DIR}/kcov-merged.new"
+  rm -rf "$merged_out" 2>/dev/null || true
+  mkdir -p "$merged_out"
 
   shopt -s nullglob
   parts=("${kcov_parts_dir}"/*)
@@ -188,7 +195,12 @@ kcov_wrap_merge() {
     exit 1
   fi
 
-  kcov --merge "${KCOV_WRAP_OUT_DIR}/kcov-merged" "${parts[@]}" >/dev/null
+  kcov --merge "$merged_out" "${parts[@]}" >/dev/null
+
+  if [[ -e "${KCOV_WRAP_OUT_DIR}/kcov-merged" ]]; then
+    mv "${KCOV_WRAP_OUT_DIR}/kcov-merged" "${KCOV_WRAP_OUT_DIR}/kcov-merged.old.$$" 2>/dev/null || true
+  fi
+  mv "$merged_out" "${KCOV_WRAP_OUT_DIR}/kcov-merged" 2>/dev/null || true
 }
 
 kcov_wrap_init
@@ -387,6 +399,7 @@ make_isolated_path_dir() {
     cat rm mkdir rmdir mv cp ln chmod touch
     cut grep sed awk tr sort
     date mktemp head tail sleep
+    uname hostname
   )
 
   local t src
@@ -416,6 +429,13 @@ make_isolated_path_dir "$install_path_no_apt_cache" dirname flock id getent
 
 install_path_with_nspawn="$tmp_dir/install-path-with-nspawn"
 make_isolated_path_dir "$install_path_with_nspawn" apt-cache dirname flock id getent systemd-nspawn
+
+# Extra PATH variants to exercise actions-runner configure branches deterministically.
+install_path_no_runuser="$tmp_dir/install-path-no-runuser"
+make_isolated_path_dir "$install_path_no_runuser" apt-cache dirname flock id getent
+
+install_path_with_runuser="$tmp_dir/install-path-with-runuser"
+make_isolated_path_dir "$install_path_with_runuser" apt-cache dirname flock id getent runuser
 export APPLIANCE_ALLOW_NON_ROOT=1
 export APPLIANCE_INSTALLED_MARKER="$tmp_dir/install.marker"
 export APPLIANCE_INSTALL_LOCK="$tmp_dir/install.lock"
@@ -510,6 +530,172 @@ write_marker
 EOF
 chmod +x "$install_write_marker_helper"
 kcov_wrap_run "install-write-marker" "$install_write_marker_helper" >/dev/null 2>&1 || true
+
+# actions-runner helper coverage (pure functions + branch selection)
+install_actions_runner_helpers_helper="$tmp_dir/install-actions-runner-helpers-helper.sh"
+cat >"$install_actions_runner_helpers_helper" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$install_path_with_nspawn"
+export APPLIANCE_ROOT="$tmp_dir/root-actions-runner-helpers"
+mkdir -p "\$APPLIANCE_ROOT"
+export APPLIANCE_ALLOW_NON_ROOT=1
+export APPLIANCE_DRY_RUN=1
+source "$REPO_ROOT/scripts/install.sh"
+
+# runner_user
+runner_user >/dev/null
+APPLIANCE_USER="x" runner_user >/dev/null
+
+# runner_is_configured
+dir="\$(runner_dir)"
+mkdir -p "\$dir"
+touch "\$dir/.runner"
+runner_is_configured >/dev/null || true
+rm -f "\$dir/.runner"
+touch "\$dir/.credentials"
+runner_is_configured >/dev/null || true
+
+# default/explicit version
+unset -v RUNNER_ACTIONS_RUNNER_VERSION
+resolve_actions_runner_version >/dev/null
+RUNNER_ACTIONS_RUNNER_VERSION="9.9.9" resolve_actions_runner_version >/dev/null
+
+# arch override + uname mapping
+RUNNER_ACTIONS_RUNNER_ARCH="arm" resolve_actions_runner_arch >/dev/null
+unset -v RUNNER_ACTIONS_RUNNER_ARCH
+resolve_actions_runner_arch >/dev/null
+
+# Cover additional uname mappings and unsupported arch.
+stub_bin="\$(mktemp -d)"
+cat >"\$stub_bin/uname" <<'EOS'
+#!/usr/bin/env bash
+echo "\${FAKE_UNAME_M:-x86_64}"
+EOS
+chmod +x "\$stub_bin/uname"
+export PATH="\$stub_bin:$install_path_with_nspawn"
+FAKE_UNAME_M=aarch64 resolve_actions_runner_arch >/dev/null
+FAKE_UNAME_M=armv7l resolve_actions_runner_arch >/dev/null
+( set +e; FAKE_UNAME_M=mips resolve_actions_runner_arch >/dev/null; exit 0 )
+
+# tarball URL precedence/derivation/empty
+RUNNER_ACTIONS_RUNNER_TARBALL_URL="https://example.invalid/runner.tgz" resolve_actions_runner_tarball_url >/dev/null
+unset -v RUNNER_ACTIONS_RUNNER_TARBALL_URL
+unset -v RUNNER_GITHUB_URL RUNNER_REGISTRATION_TOKEN
+unset -v RUNNER_ACTIONS_RUNNER_VERSION
+resolve_actions_runner_tarball_url >/dev/null
+RUNNER_ACTIONS_RUNNER_VERSION="2.330.0" resolve_actions_runner_tarball_url >/dev/null
+unset -v RUNNER_ACTIONS_RUNNER_VERSION
+RUNNER_GITHUB_URL="https://github.com/example/repo" RUNNER_REGISTRATION_TOKEN="token" resolve_actions_runner_tarball_url >/dev/null
+
+# actions-runner already-installed short circuit
+dir="\$(runner_dir)"
+mkdir -p "\$dir"
+cat >"\$dir/runsvc.sh" <<'EOS'
+#!/usr/bin/env bash
+exit 0
+EOS
+chmod +x "\$dir/runsvc.sh"
+RUNNER_ACTIONS_RUNNER_TARBALL_URL="https://example.invalid/runner.tgz" install_actions_runner_if_configured
+EOF
+chmod +x "$install_actions_runner_helpers_helper"
+kcov_wrap_run "install-actions-runner-helpers" "$install_actions_runner_helpers_helper" >/dev/null 2>&1 || true
+
+# actions-runner install/configure coverage (dry-run)
+install_actions_runner_flow_helper="$tmp_dir/install-actions-runner-flow-helper.sh"
+cat >"$install_actions_runner_flow_helper" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export APPLIANCE_ROOT="$tmp_dir/root-actions-runner-flow"
+mkdir -p "\$APPLIANCE_ROOT"
+export APPLIANCE_ALLOW_NON_ROOT=1
+export APPLIANCE_DRY_RUN=1
+
+# Force install branch via explicit URL.
+export RUNNER_ACTIONS_RUNNER_TARBALL_URL="https://example.invalid/runner.tgz"
+source "$REPO_ROOT/scripts/install.sh"
+
+# Cover dependency installer branch when present.
+dir="\$(runner_dir)"
+mkdir -p "\$dir/bin"
+cat >"\$dir/bin/installdependencies.sh" <<'EOS'
+#!/usr/bin/env bash
+exit 0
+EOS
+chmod +x "\$dir/bin/installdependencies.sh"
+install_actions_runner_if_configured
+
+# Configure: vars missing is a no-op.
+unset -v RUNNER_GITHUB_URL RUNNER_REGISTRATION_TOKEN
+configure_actions_runner_if_configured
+
+# Configure: vars present but missing config.sh -> die.
+export RUNNER_GITHUB_URL="https://github.com/example/repo"
+export RUNNER_REGISTRATION_TOKEN="token"
+export RUNNER_NAME="test"
+( set +e; configure_actions_runner_if_configured; exit 0 ) >/dev/null 2>&1 || true
+
+# Configure: present + config.sh, cover both runuser and fallback branches.
+dir="\$(runner_dir)"
+mkdir -p "\$dir"
+cat >"\$dir/config.sh" <<'EOS'
+#!/usr/bin/env bash
+exit 0
+EOS
+chmod +x "\$dir/config.sh"
+
+export PATH="$install_path_with_runuser"
+configure_actions_runner_if_configured
+
+export PATH="$install_path_no_runuser"
+configure_actions_runner_if_configured
+EOF
+chmod +x "$install_actions_runner_flow_helper"
+kcov_wrap_run "install-actions-runner-flow" "$install_actions_runner_flow_helper" >/dev/null 2>&1 || true
+
+# install.sh: exercise optional-features-actions-runner + runner-service-start.
+install_actions_runner_main_helper="$tmp_dir/install-actions-runner-main-helper.sh"
+cat >"$install_actions_runner_main_helper" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH="$install_path_with_nspawn"
+export APPLIANCE_ROOT="$tmp_dir/root-actions-runner-main"
+mkdir -p "\$APPLIANCE_ROOT/etc/runner"
+export APPLIANCE_ALLOW_NON_ROOT=1
+export APPLIANCE_DRY_RUN=1
+export APPLIANCE_INSTALLED_MARKER="$tmp_dir/install.actions-runner-main.marker"
+export APPLIANCE_INSTALL_LOCK="$tmp_dir/install.actions-runner-main.lock"
+rm -f "\$APPLIANCE_INSTALLED_MARKER" "\$APPLIANCE_INSTALL_LOCK"
+
+cat >"\$APPLIANCE_ROOT/etc/runner/config.env" <<'EOS'
+APPLIANCE_LOG_PREFIX="runner"
+APPLIANCE_DRY_RUN=1
+RUNNER_GITHUB_URL="https://github.com/example/repo"
+RUNNER_REGISTRATION_TOKEN="token"
+RUNNER_ACTIONS_RUNNER_VERSION="2.330.0"
+RUNNER_NAME="test"
+EOS
+
+# Pre-create installed+configured runner so main hits runner-service-start.
+source "$REPO_ROOT/scripts/install.sh"
+dir="\$(runner_dir)"
+mkdir -p "\$dir"
+cat >"\$dir/config.sh" <<'EOS'
+#!/usr/bin/env bash
+exit 0
+EOS
+chmod +x "\$dir/config.sh"
+cat >"\$dir/runsvc.sh" <<'EOS'
+#!/usr/bin/env bash
+exit 0
+EOS
+chmod +x "\$dir/runsvc.sh"
+touch "\$dir/.runner"
+
+main
+EOF
+chmod +x "$install_actions_runner_main_helper"
+kcov_wrap_run "install-actions-runner-main" "$install_actions_runner_main_helper" >/dev/null 2>&1 || true
 
 # ---------- runner scripts ----------
 
