@@ -4,9 +4,9 @@ Short definitions for terms used across the docs.
 
 ## Appliance concepts
 
-- **Bootstrap**: The first-boot script that fetches/clones a pinned repo ref and runs the installer.
+- **Bootstrap**: The “first boot” script. It clones a pinned repo ref and runs the installer.
 - **Install marker**: A file (default: `/var/lib/runner/installed`) that prevents rerunning install.
-- **Repo pinning**: Installing from a specific branch/tag/commit via `APPLIANCE_REPO_URL` + `APPLIANCE_REPO_REF`.
+- **Repo pinning**: Installing from a specific branch/tag/commit via `RUNNER_BOOTSTRAP_REPO_URL` + `RUNNER_BOOTSTRAP_REPO_REF`.
 
 ## Linux + systemd
 

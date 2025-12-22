@@ -11,6 +11,13 @@ fi
 
 pkg="${2:-}"
 case "$pkg" in
+  systemd-container)
+    if [[ "${APT_CACHE_HAS_SYSTEMD_CONTAINER:-0}" == "1" ]]; then
+      echo "Package: systemd-container"
+      exit 0
+    fi
+    exit 1
+    ;;
   chromium-browser)
     if [[ "${APT_CACHE_HAS_CHROMIUM_BROWSER:-0}" == "1" ]]; then
       echo "Package: chromium-browser"

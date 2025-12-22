@@ -32,6 +32,34 @@ network_ok() {
   getent hosts github.com > /dev/null 2>&1 && curl -fsS https://github.com > /dev/null 2>&1
 }
 
+default_bootstrap_repo_url() {
+  echo "https://github.com/theaussiepom/github-runner.git"
+}
+
+default_bootstrap_repo_ref() {
+  echo "main"
+}
+
+resolve_bootstrap_repo_url() {
+  if [[ -n "${RUNNER_BOOTSTRAP_REPO_URL:-}" ]]; then
+    cover_path "bootstrap:repo-url-runner-bootstrap"
+    echo "$RUNNER_BOOTSTRAP_REPO_URL"
+    return 0
+  fi
+  cover_path "bootstrap:repo-url-default"
+  default_bootstrap_repo_url
+}
+
+resolve_bootstrap_repo_ref() {
+  if [[ -n "${RUNNER_BOOTSTRAP_REPO_REF:-}" ]]; then
+    cover_path "bootstrap:repo-ref-runner-bootstrap"
+    echo "$RUNNER_BOOTSTRAP_REPO_REF"
+    return 0
+  fi
+  cover_path "bootstrap:repo-ref-default"
+  default_bootstrap_repo_ref
+}
+
 main() {
   export APPLIANCE_LOG_PREFIX="runner bootstrap"
 
@@ -55,16 +83,16 @@ main() {
   fi
   cover_path "bootstrap:network-ok"
 
-  local repo_url="${APPLIANCE_REPO_URL:-}"
-  local repo_ref="${APPLIANCE_REPO_REF:-}"
-
-  if [[ -z "$repo_url" ]]; then
-    cover_path "bootstrap:missing-repo-url"
-    die "APPLIANCE_REPO_URL is required (set in /etc/runner/config.env)"
+  local repo_url
+  repo_url="$(resolve_bootstrap_repo_url)"
+  if [[ -z "${RUNNER_BOOTSTRAP_REPO_URL:-}" ]]; then
+    log "Repo URL not set; defaulting to $repo_url (set RUNNER_BOOTSTRAP_REPO_URL to override)"
   fi
-  if [[ -z "$repo_ref" ]]; then
-    cover_path "bootstrap:missing-repo-ref"
-    die "APPLIANCE_REPO_REF is required (branch/tag/commit)"
+
+  local repo_ref
+  repo_ref="$(resolve_bootstrap_repo_ref)"
+  if [[ -z "${RUNNER_BOOTSTRAP_REPO_REF:-}" ]]; then
+    log "Repo ref not set; defaulting to $repo_ref (set RUNNER_BOOTSTRAP_REPO_REF to override; pinning is recommended)"
   fi
 
   local checkout_dir="${APPLIANCE_CHECKOUT_DIR:-$(appliance_path /opt/runner)}"

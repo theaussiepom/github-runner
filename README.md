@@ -1,12 +1,23 @@
 # runner
 
-Bash + systemd appliance for running a single GitHub Actions self-hosted runner on Linux (including Raspberry Pi).
+This repo is a small “appliance” (a handful of Bash scripts + systemd unit files) that runs a single
+GitHub Actions self-hosted runner on a Linux machine.
 
-Goal:
+If you’re new to self-hosted runners: it’s GitHub’s runner program, but running on your own machine
+instead of GitHub’s hosted runners.
 
-- Keep exactly one host runner process managed by systemd.
-- Route job execution into an ephemeral `systemd-nspawn` guest (systemd PID1 semantics)
-  via GitHub Actions runner container hooks.
+Linux notes:
+
+- This works on general Linux (Raspberry Pi is supported, but it’s not a requirement).
+- systemd is used to start/stop things reliably at boot.
+
+What it aims to do:
+
+- Keep a single host runner process managed by systemd.
+- When a workflow uses job containers, run the job steps inside a short-lived `systemd-nspawn` guest
+  instead of using Docker.
+  (If `systemd-nspawn` is new to you: it’s a lightweight container that boots a small Linux userspace
+  with systemd inside it.)
 
 ## Documentation
 
@@ -15,6 +26,9 @@ Goal:
 - [Glossary](docs/glossary.md)
 
 ## Quick start (dev + CI)
+
+If you want to run the repo’s checks locally, the easiest path is to use the devcontainer.
+It’s a Docker image with the exact lint/test tools CI uses.
 
 Build the devcontainer image:
 
@@ -42,14 +56,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the required pre-PR checks.
 
 ## Runtime model
 
-At a glance, systemd manages two key units:
+At runtime, systemd manages two services:
 
 - `runner-install.service` (first-boot installer; retried until it succeeds)
 - `runner.service` (runs the configured GitHub runner)
 
 ## Installation (cloud-init / Pi Imager)
 
-The recommended install flow is:
+The normal install flow is designed for “first boot” setups (cloud-init or Pi Imager):
 
 1. cloud-init writes `/etc/runner/config.env`.
 2. cloud-init installs a one-time installer unit + bootstrap script.
@@ -64,10 +78,12 @@ Examples:
 
 Runtime configuration lives in `/etc/runner/config.env`.
 
-Required (first-boot bootstrap):
+Bootstrap repo pin (used when the host needs to fetch this repo to install/update itself):
 
-- `APPLIANCE_REPO_URL`
-- `APPLIANCE_REPO_REF` (branch/tag/commit; pinning to a tag/commit is recommended)
+- `RUNNER_BOOTSTRAP_REPO_URL` (a `git clone` URL for this repo or your fork)
+- `RUNNER_BOOTSTRAP_REPO_REF` (branch/tag/commit; pinning to a tag/commit is recommended)
+
+If you omit these, bootstrap defaults to this repo on `main`.
 
 Optional:
 
@@ -76,18 +92,20 @@ Optional:
 - `APPLIANCE_APT_PACKAGES` (space-separated extra packages for install)
 - `APPLIANCE_DRY_RUN=1` (do not modify system; record intended actions)
 
-Runner:
+Runner paths:
 
 - `RUNNER_ACTIONS_RUNNER_DIR` (default: `/opt/runner/actions-runner`)
 - `RUNNER_HOOKS_DIR` (default: `/usr/local/lib/runner`)
 
-Job isolation (`systemd-nspawn`):
+Job isolation (`systemd-nspawn`) settings:
 
 - `RUNNER_NSPAWN_BASE_ROOTFS` (default: `/var/lib/runner/nspawn/base-rootfs`)
 - `RUNNER_NSPAWN_READY_TIMEOUT_S` (default: `20`)
 - `RUNNER_NSPAWN_BIND` / `RUNNER_NSPAWN_BIND_RO` (space-separated bind mount entries)
 
 ## Day-2 operations
+
+These are the “what’s running?” commands you’ll use most often.
 
 Inspect service status:
 
@@ -104,7 +122,7 @@ ls -l /var/lib/runner/installed || true
 
 ## Manual install (no cloud-init)
 
-If you cannot use cloud-init, you can install via SSH.
+If you can’t use cloud-init, you can still install over SSH.
 
 1. Install prerequisites:
 

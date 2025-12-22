@@ -48,6 +48,32 @@ teardown() {
 	[ "$status" -eq 0 ]
 }
 
+@test "install: auto-installs systemd-container when systemd-nspawn missing and installable" {
+	write_config_env ''
+
+	# Use an isolated PATH that includes apt-cache but *not* systemd-nspawn,
+	# so install.sh takes the auto-install branch.
+	make_isolated_path_with_stubs apt-cache dirname flock id getent
+
+	ID_APPLIANCE_EXISTS=1 \
+		APPLIANCE_STUB_FLOCK_EXIT_CODE=0 \
+		APT_CACHE_HAS_SYSTEMD_CONTAINER=1 \
+		run env APPLIANCE_ALLOW_NON_ROOT=1 APPLIANCE_DRY_RUN=1 bash "$APPLIANCE_REPO_ROOT/scripts/install.sh"
+	[ "$status" -eq 0 ]
+}
+
+@test "install: does not auto-install systemd-container when systemd-nspawn missing but not installable" {
+	write_config_env ''
+
+	make_isolated_path_with_stubs apt-cache dirname flock id getent
+
+	ID_APPLIANCE_EXISTS=1 \
+		APPLIANCE_STUB_FLOCK_EXIT_CODE=0 \
+		APT_CACHE_HAS_SYSTEMD_CONTAINER=0 \
+		run env APPLIANCE_ALLOW_NON_ROOT=1 APPLIANCE_DRY_RUN=1 bash "$APPLIANCE_REPO_ROOT/scripts/install.sh"
+	[ "$status" -eq 0 ]
+}
+
 @test "install: ensure_user branches" {
 	run bash -c "set -euo pipefail; export APPLIANCE_ROOT=\"$TEST_ROOT\"; export APPLIANCE_DRY_RUN=1; export ID_APPLIANCE_EXISTS=1; source \"$APPLIANCE_REPO_ROOT/scripts/install.sh\"; ensure_user"
 	[ "$status" -eq 0 ]

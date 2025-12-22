@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+# shellcheck disable=SC1091
 load '../helpers/common.bash'
 
 setup() {
@@ -20,14 +21,14 @@ teardown() {
 	[ "$status" -eq 0 ]
 	[ "$output" = "runner" ]
 
-	APPLIANCE_LOG_PREFIX="custom"
+	export APPLIANCE_LOG_PREFIX="custom"
 	run appliance_log_prefix
 	[ "$status" -eq 0 ]
 	[ "$output" = "custom" ]
 }
 
 @test "lib-logging: log/warn" {
-	APPLIANCE_LOG_PREFIX="t"
+	export APPLIANCE_LOG_PREFIX="t"
 	run log "hello"
 	[ "$status" -eq 0 ]
 
@@ -36,7 +37,7 @@ teardown() {
 }
 
 @test "lib-logging: die exits non-zero" {
-	APPLIANCE_LOG_PREFIX="t"
+	export APPLIANCE_LOG_PREFIX="t"
 	run bash -c "source \"$APPLIANCE_REPO_ROOT/scripts/lib/common.sh\"; source \"$APPLIANCE_REPO_ROOT/scripts/lib/logging.sh\"; die boom"
 	[ "$status" -ne 0 ]
 }

@@ -14,10 +14,12 @@ bootstrap:installed-marker
 bootstrap:installer-dry-run
 bootstrap:installer-exec
 bootstrap:installer-missing
-bootstrap:missing-repo-ref
-bootstrap:missing-repo-url
 bootstrap:network-not-ready
 bootstrap:network-ok
+bootstrap:repo-ref-default
+bootstrap:repo-ref-runner-bootstrap
+bootstrap:repo-url-default
+bootstrap:repo-url-runner-bootstrap
 bootstrap:reuse-checkout
 ci-nspawn-run:base-missing
 ci-nspawn-run:bind-extra
@@ -41,6 +43,12 @@ install:lock-busy
 install:marker-after-lock
 install:marker-present-early
 install:optional-features-none
+install:apt-pkg-available
+install:apt-pkg-unavailable
+install:auto-install-systemd-container
+install:auto-install-systemd-container-unavailable
+install:has-systemd-nspawn
+install:missing-systemd-nspawn
 install:root-ok
 install:root-required
 install:user-created

@@ -8,8 +8,8 @@ write_files:
     permissions: "0644"
     content: |
       # Core config (required)
-      APPLIANCE_REPO_URL=https://github.com/your-org/github-runner.git
-      APPLIANCE_REPO_REF=main
+      RUNNER_BOOTSTRAP_REPO_URL=https://github.com/your-org/github-runner.git
+      RUNNER_BOOTSTRAP_REPO_REF=main
 
       # Optional: where to clone to
       # APPLIANCE_CHECKOUT_DIR=/opt/runner
@@ -41,10 +41,8 @@ write_files:
           die "Network not ready yet"
         fi
 
-        local repo_url="${APPLIANCE_REPO_URL:-}"
-        local repo_ref="${APPLIANCE_REPO_REF:-}"
-        [[ -n "$repo_url" ]] || die "APPLIANCE_REPO_URL is required"
-        [[ -n "$repo_ref" ]] || die "APPLIANCE_REPO_REF is required"
+        local repo_url="${RUNNER_BOOTSTRAP_REPO_URL:-https://github.com/theaussiepom/github-runner.git}"
+        local repo_ref="${RUNNER_BOOTSTRAP_REPO_REF:-main}"
 
         local checkout_dir="${APPLIANCE_CHECKOUT_DIR:-/opt/runner}"
         if [[ ! -d "$checkout_dir/.git" ]]; then
