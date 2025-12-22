@@ -1,0 +1,7 @@
+[Unit]
+Description=template-appliance healthcheck/failover
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/template-appliance/config.env
+ExecStart=/usr/local/lib/template-appliance/healthcheck.sh

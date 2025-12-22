@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="${APPLIANCE_CALLS_FILE:-/dev/null}"
+printf 'chown %q\n' "$*" >>"$calls_file" || true
+
+exit 0

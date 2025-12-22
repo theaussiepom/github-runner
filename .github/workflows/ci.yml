@@ -1,0 +1,291 @@
+---
+name: ci
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-permissions:
+    name: lint-permissions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build devcontainer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: template-appliance-devcontainer:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run stage in devcontainer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            template-appliance-devcontainer:ci \
+            bash -lc './scripts/ci.sh lint-permissions'
+
+  lint-naming:
+    name: lint-naming
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build devcontainer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: template-appliance-devcontainer:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run stage in devcontainer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            template-appliance-devcontainer:ci \
+            bash -lc './scripts/ci.sh lint-naming'
+
+  lint-sh:
+    name: lint-sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build devcontainer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: template-appliance-devcontainer:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run stage in devcontainer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            template-appliance-devcontainer:ci \
+            bash -lc './scripts/ci.sh lint-sh'
+
+  test-all:
+    name: test-all
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build devcontainer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: template-appliance-devcontainer:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run stage in devcontainer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            template-appliance-devcontainer:ci \
+            bash -lc './scripts/ci.sh tests'
+
+  test-coverage:
+    name: test-coverage
+    runs-on: ubuntu-latest
+    needs: [test-all]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build devcontainer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: template-appliance-devcontainer:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run stage in devcontainer
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            template-appliance-devcontainer:ci \
+            bash -lc './scripts/ci.sh coverage'
+
+      - name: Show kcov output paths
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Listing coverage/ (if present)"
+          ls -la coverage || true
+          echo "Searching for coverage.json under coverage/"
+          find coverage -maxdepth 4 -name coverage.json -print 2>/dev/null || true
+          echo "Searching for kcov logs under coverage/"
+          find coverage -maxdepth 2 -name '*.log' -print 2>/dev/null || true
+
+      - name: Show kcov log tails (failure only)
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in coverage/*.log; do
+            [ -f "$f" ] || continue
+            echo "--- $f (last 200 lines) ---"
+            tail -n 200 "$f" || true
+          done
+
+      - name: Upload kcov coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kcov-coverage
+          path: coverage/
+          if-no-files-found: warn
+
+      - name: Upload kcov logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kcov-logs
+          path: |
+            coverage/*.log
+            coverage/**/*.log
+            coverage/*.strace
+            coverage/**/*.strace
+          if-no-files-found: warn
+
+  # Coverage enforcement is handled by ./scripts/ci.sh coverage
+
+  lint-yaml:
+    name: lint-yaml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build devcontainer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: template-appliance-devcontainer:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run stage in devcontainer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            template-appliance-devcontainer:ci \
+            bash -lc './scripts/ci.sh lint-yaml'
+
+  lint-systemd:
+    name: lint-systemd
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build devcontainer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: template-appliance-devcontainer:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run stage in devcontainer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            template-appliance-devcontainer:ci \
+            bash -lc './scripts/ci.sh lint-systemd'
+
+  lint-markdown:
+    name: lint-markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build devcontainer image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: template-appliance-devcontainer:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run stage in devcontainer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            template-appliance-devcontainer:ci \
+            bash -lc './scripts/ci.sh lint-markdown'

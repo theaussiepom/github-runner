@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="${APPLIANCE_CALLS_FILE:-/dev/null}"
+printf 'getent %q\n' "$*" >>"$calls_file" || true
+
+if [[ "${1:-}" == "hosts" ]]; then
+	exit "${GETENT_HOSTS_EXIT_CODE:-${GETENT_EXIT_CODE:-0}}"
+fi
+
+if [[ "${1:-}" == "passwd" ]]; then
+	user="${2:-}"
+	if [[ "$user" == "appliance" ]]; then
+		echo "${GETENT_PASSWD_APPLIANCE_LINE:-appliance:x:1000:1000::/home/appliance:/bin/bash}"
+		exit 0
+	fi
+	exit 2
+fi
+
+exit "${GETENT_EXIT_CODE:-0}"

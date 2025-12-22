@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="${APPLIANCE_CALLS_FILE:-/dev/null}"
+printf 'mountpoint %q\n' "$*" >>"$calls_file" || true
+
+# mountpoint -q <path>
+if [[ "$1" == "-q" ]]; then
+	path="$2"
+	grep_bin="grep"
+	if [[ -x /usr/bin/grep ]]; then
+		grep_bin="/usr/bin/grep"
+	elif [[ -x /bin/grep ]]; then
+		grep_bin="/bin/grep"
+	fi
+	# If MOUNTPOINT_PATHS contains the path as a newline-separated token, return success.
+	if printf '%b' "${MOUNTPOINT_PATHS:-}" | "$grep_bin" -Fxq -- "$path"; then
+		exit 0
+	fi
+	exit 1
+fi
+
+exit 1

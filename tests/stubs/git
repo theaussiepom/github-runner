@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="${APPLIANCE_CALLS_FILE:-/dev/null}"
+printf 'git %q\n' "$*" >>"$calls_file" || true
+
+# Simulate the subset of git used by bootstrap.
+# - git clone --no-checkout <url> <dir>
+# - git -C <dir> fetch ...
+# - git -C <dir> checkout ...
+
+if [[ "$1" == "clone" ]]; then
+	dest="${@: -1}"
+	mkdir -p "$dest/.git"
+	exit 0
+fi
+
+exit 0

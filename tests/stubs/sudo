@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "sudo $*" >>"${APPLIANCE_CALLS_FILE:-/dev/null}" || true
+
+# In tests we just run the underlying command directly when possible.
+if [[ "${1:-}" == "-u" ]]; then
+	shift 2
+fi
+exec "$@"

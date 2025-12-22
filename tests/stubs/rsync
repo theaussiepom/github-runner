@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="${APPLIANCE_CALLS_FILE:-/dev/null}"
+printf 'rsync %q\n' "$*" >>"$calls_file" || true
+
+exit "${RSYNC_EXIT_CODE:-0}"

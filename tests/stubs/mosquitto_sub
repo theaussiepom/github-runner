@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "mosquitto_sub $*" >>"${APPLIANCE_CALLS_FILE:-/dev/null}" || true
+# Emit nothing and exit.
+exit 0

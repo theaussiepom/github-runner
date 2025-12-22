@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="${APPLIANCE_CALLS_FILE:-/dev/null}"
+printf 'systemctl %q\n' "$*" >>"$calls_file" || true
+
+# Minimal behavior for unit tests.
+if [[ "$1" == "is-active" && "$2" == "--quiet" ]]; then
+	unit="$3"
+	case "$unit" in
+		template-appliance-primary.service) exit "${SYSTEMCTL_ACTIVE_PRIMARY:-1}" ;;
+		template-appliance-secondary.service) exit "${SYSTEMCTL_ACTIVE_SECONDARY:-1}" ;;
+		*) exit 1 ;;
+	esac
+fi
+
+exit 0

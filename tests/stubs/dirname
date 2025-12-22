@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Provide dirname even when PATH is intentionally minimal.
+if [[ -x /usr/bin/dirname ]]; then
+	exec /usr/bin/dirname "$@"
+fi
+if [[ -x /bin/dirname ]]; then
+	exec /bin/dirname "$@"
+fi
+
+echo "dirname: not found" >&2
+exit 127

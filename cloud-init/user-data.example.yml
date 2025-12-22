@@ -1,0 +1,100 @@
+#cloud-config
+---
+# Example cloud-init for Raspberry Pi Imager.
+# Write your real values into /etc/template-appliance/config.env.
+
+write_files:
+  - path: /etc/template-appliance/config.env
+    permissions: "0644"
+    content: |
+      # Core config (required)
+      # Pin to a tag/commit for deterministic builds.
+      APPLIANCE_REPO_URL=https://github.com/your-org/template-appliance.git
+      APPLIANCE_REPO_REF=main
+
+      # Optional: where to clone to
+      # APPLIANCE_CHECKOUT_DIR=/opt/template-appliance
+
+      # Runtime commands (required)
+      APPLIANCE_PRIMARY_CMD='echo "primary"; sleep infinity'
+      APPLIANCE_SECONDARY_CMD='echo "secondary"; sleep infinity'
+
+  - path: /usr/local/lib/template-appliance/bootstrap.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      log() { echo "template-appliance bootstrap: $*" >&2; }
+      die() { log "$*"; exit 1; }
+      require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"; }
+      network_ok() { getent hosts github.com >/dev/null 2>&1 && curl -fsS https://github.com >/dev/null 2>&1; }
+
+      main() {
+        if [[ -f /var/lib/template-appliance/installed ]]; then
+          log "Marker present; nothing to do."
+          exit 0
+        fi
+
+        require_cmd curl
+        require_cmd git
+
+        if ! network_ok; then
+          die "Network not ready yet"
+        fi
+
+        local repo_url="${APPLIANCE_REPO_URL:-}"
+        local repo_ref="${APPLIANCE_REPO_REF:-}"
+        [[ -n "$repo_url" ]] || die "APPLIANCE_REPO_URL is required"
+        [[ -n "$repo_ref" ]] || die "APPLIANCE_REPO_REF is required"
+
+        local checkout_dir="${APPLIANCE_CHECKOUT_DIR:-/opt/template-appliance}"
+        if [[ ! -d "$checkout_dir/.git" ]]; then
+          log "Cloning $repo_url -> $checkout_dir"
+          rm -rf "$checkout_dir"
+          git clone --no-checkout "$repo_url" "$checkout_dir"
+        fi
+
+        log "Fetching ref $repo_ref"
+        git -C "$checkout_dir" fetch --depth 1 origin "$repo_ref"
+        git -C "$checkout_dir" checkout -f FETCH_HEAD
+
+        if [[ ! -x "$checkout_dir/scripts/install.sh" ]]; then
+          die "Installer not found or not executable: $checkout_dir/scripts/install.sh"
+        fi
+
+        exec "$checkout_dir/scripts/install.sh"
+      }
+
+      main "$@"
+
+  - path: /etc/systemd/system/template-appliance-install.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=template-appliance one-time installer
+      Wants=network-online.target
+      After=network-online.target
+      ConditionPathExists=!/var/lib/template-appliance/installed
+
+      [Service]
+      Type=oneshot
+      EnvironmentFile=-/etc/template-appliance/config.env
+      ExecStart=/usr/local/lib/template-appliance/bootstrap.sh
+      Restart=on-failure
+      RestartSec=30
+      StartLimitIntervalSec=0
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - - bash
+    - -lc
+    - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git
+  - - bash
+    - -lc
+    - systemctl daemon-reload
+  - - bash
+    - -lc
+    - systemctl enable --now template-appliance-install.service

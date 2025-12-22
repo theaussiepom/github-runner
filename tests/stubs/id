@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Minimal id stub for scripts that check whether a user exists.
+if [[ "${1:-}" == "-u" && "${2:-}" == "appliance" ]]; then
+	if [[ "${ID_APPLIANCE_EXISTS:-1}" != "1" ]]; then
+		exit 1
+	fi
+	echo 1000
+	exit 0
+fi
+
+# Fallback to the real id.
+exec /usr/bin/id "$@"

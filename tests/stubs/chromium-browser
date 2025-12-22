@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "chromium-browser $*" >>"${APPLIANCE_CALLS_FILE:-/dev/null}" || true
+exit 0

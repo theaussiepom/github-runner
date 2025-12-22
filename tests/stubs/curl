@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="${APPLIANCE_CALLS_FILE:-/dev/null}"
+printf 'curl %q\n' "$*" >>"$calls_file" || true
+
+exit "${CURL_EXIT_CODE:-0}"
