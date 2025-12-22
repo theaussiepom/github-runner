@@ -35,7 +35,10 @@ sudo apt-get install -y --no-install-recommends ca-certificates curl git
 1. Create `/etc/runner/config.env` using values from GitHub’s “New self-hosted runner” page:
 
 ```bash
-sudo mkdir -p /etc/runner
+sudo install -d -m 0755 /etc/runner
+
+# This file contains a short-lived registration token; keep it root-readable only.
+sudo install -m 0600 /dev/null /etc/runner/config.env
 sudo tee /etc/runner/config.env >/dev/null <<'EOF'
 # Optional: actions runner version to install.
 # Default: 2.330.0 (may not be the latest).
@@ -190,6 +193,7 @@ sudo apt-get install -y --no-install-recommends ca-certificates curl git
 sudo mkdir -p /etc/runner
 sudo cp /path/to/runner/examples/config.env.example /etc/runner/config.env
 sudo nano /etc/runner/config.env
+sudo chmod 600 /etc/runner/config.env
 ```
 
 1. Clone the repo and run the installer as root:
