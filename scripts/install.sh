@@ -127,11 +127,31 @@ install_actions_runner_if_configured() {
 
   # Runner-provided dependency installer; must run as root.
   if [[ -x "$dir/bin/installdependencies.sh" ]]; then
-    run_cmd "$dir/bin/installdependencies.sh"
+    # Runner scripts often assume they are executed from within the runner dir.
+    run_cmd bash -c "cd \"\$1\" && exec ./bin/installdependencies.sh" bash "$dir"
   fi
 
   # Ensure the runner files are owned by the dedicated user.
   run_cmd chown -R "$user:$user" "$dir"
+}
+
+validate_actions_runner_registration_inputs() {
+  local github_url="$1"
+  local reg_token="$2"
+
+  # Users occasionally paste API endpoints; the runner expects the *web* URL.
+  if [[ "$github_url" == *"api.github.com"* || "$github_url" == */api/v3* ]]; then
+    cover_path "install:actions-runner-config-invalid-url"
+    die "RUNNER_GITHUB_URL must be the web URL for the org/repo (e.g. https://github.com/ORG or https://github.com/ORG/REPO), not an API URL: $github_url"
+  fi
+
+  # GitHub returns 404 for invalid auth; a common cause is a PAT instead of a registration token.
+  if [[ "$reg_token" == ghp_* || "$reg_token" == github_pat_* || "$reg_token" == gho_* || "$reg_token" == ghu_* || "$reg_token" == ghs_* || "$reg_token" == ghr_* ]]; then
+    cover_path "install:actions-runner-config-pat"
+    die "RUNNER_REGISTRATION_TOKEN looks like a GitHub token (PAT/app). Use the short-lived *runner registration token* from Settings → Actions → Runners → New self-hosted runner. A wrong/expired token commonly shows up as HTTP 404 during registration."
+  fi
+
+  cover_path "install:actions-runner-config-inputs-ok"
 }
 
 configure_actions_runner_if_configured() {
@@ -145,6 +165,8 @@ configure_actions_runner_if_configured() {
     return 0
   fi
   cover_path "install:actions-runner-config-vars-present"
+
+  validate_actions_runner_registration_inputs "$github_url" "$reg_token"
 
   local dir
   dir="$(runner_dir)"
@@ -164,12 +186,15 @@ configure_actions_runner_if_configured() {
 
   local name="${RUNNER_NAME:-$(hostname)}"
 
-  local -a cmd=("$dir/config.sh" --unattended --url "$github_url" --token "$reg_token" --name "$name")
+  local -a cmd=("./config.sh" --unattended --url "$github_url" --token "$reg_token" --name "$name")
   if command -v runuser > /dev/null 2>&1; then
-    run_cmd runuser -u "$user" -- "${cmd[@]}"
+    # Run from within the runner directory so runner scripts can use ./bin/ paths.
+    run_cmd runuser -u "$user" -- bash -c "cd \"\$1\"; shift; exec \"\$@\"" bash "$dir" "${cmd[@]}"
   else
     # Fallback for environments without runuser.
-    run_cmd su -s /bin/bash -c "\"$dir/config.sh\" --unattended --url \"$github_url\" --token \"$reg_token\" --name \"$name\"" "$user"
+    local su_cmd
+    su_cmd="$(printf 'cd %q && exec %q --unattended --url %q --token %q --name %q' "$dir" "./config.sh" "$github_url" "$reg_token" "$name")"
+    run_cmd su -s /bin/bash -c "$su_cmd" "$user"
   fi
 }
 
