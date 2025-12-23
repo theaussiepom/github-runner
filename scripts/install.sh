@@ -24,7 +24,7 @@ runner_user() {
 runner_is_installed() {
   local dir
   dir="$(runner_dir)"
-  [[ -x "$dir/runsvc.sh" ]]
+  [[ -x "$dir/runsvc.sh" || -x "$dir/bin/runsvc.sh" ]]
 }
 
 runner_is_configured() {
