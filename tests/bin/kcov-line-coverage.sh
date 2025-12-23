@@ -739,6 +739,18 @@ hook_dir="$APPLIANCE_ROOT/usr/local/lib/runner"
 ( set +e; kcov_wrap_run "runner-service-missing" "$REPO_ROOT/scripts/runner-service.sh"; exit 0 ) >/dev/null 2>&1 || true
 
 mkdir -p "$runner_dir" "$hook_dir"
+
+# First: only bin/runsvc.sh exists (matches real runner extraction layout).
+mkdir -p "$runner_dir/bin"
+cat >"$runner_dir/bin/runsvc.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$runner_dir/bin/runsvc.sh"
+
+kcov_wrap_run "runner-service-no-hooks" "$REPO_ROOT/scripts/runner-service.sh" >/dev/null 2>&1 || true
+
+# Second: root runsvc.sh exists; should take precedence.
 cat >"$runner_dir/runsvc.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
@@ -751,8 +763,6 @@ mkdir -p "$runner_service_fallback_root/scripts"
 ln -sf "$REPO_ROOT/scripts/lib" "$runner_service_fallback_root/lib"
 ln -sf "$REPO_ROOT/scripts/runner-service.sh" "$runner_service_fallback_root/scripts/runner-service.sh"
 kcov_wrap_run "runner-service-libdir-fallback" "$runner_service_fallback_root/scripts/runner-service.sh" >/dev/null 2>&1 || true
-
-kcov_wrap_run "runner-service-no-hooks" "$REPO_ROOT/scripts/runner-service.sh" >/dev/null 2>&1 || true
 
 cat >"$hook_dir/container-hooks.sh" <<'EOF'
 #!/usr/bin/env bash

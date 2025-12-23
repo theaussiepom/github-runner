@@ -20,20 +20,20 @@ teardown() {
 }
 
 @test "runner-service: no container hooks still runs" {
-	mkdir -p "$TEST_ROOT/opt/runner/actions-runner"
-	cat >"$TEST_ROOT/opt/runner/actions-runner/runsvc.sh" <<'EOF'
+	mkdir -p "$TEST_ROOT/opt/runner/actions-runner/bin"
+	cat >"$TEST_ROOT/opt/runner/actions-runner/bin/runsvc.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
-	chmod +x "$TEST_ROOT/opt/runner/actions-runner/runsvc.sh"
+	chmod +x "$TEST_ROOT/opt/runner/actions-runner/bin/runsvc.sh"
 
 	run env APPLIANCE_ALLOW_NON_ROOT=1 bash "$APPLIANCE_REPO_ROOT/scripts/runner-service.sh"
 	[ "$status" -eq 0 ]
 }
 
 @test "runner-service: sets container hooks when present" {
-	mkdir -p "$TEST_ROOT/opt/runner/actions-runner"
-	cat >"$TEST_ROOT/opt/runner/actions-runner/runsvc.sh" <<'EOF'
+	mkdir -p "$TEST_ROOT/opt/runner/actions-runner/bin"
+	cat >"$TEST_ROOT/opt/runner/actions-runner/bin/runsvc.sh" <<'EOF'
 #!/usr/bin/env bash
 if [[ -z "${ACTIONS_RUNNER_CONTAINER_HOOKS:-}" ]]; then
 	# Fail if hooks weren't set.
@@ -41,7 +41,7 @@ if [[ -z "${ACTIONS_RUNNER_CONTAINER_HOOKS:-}" ]]; then
 fi
 exit 0
 EOF
-	chmod +x "$TEST_ROOT/opt/runner/actions-runner/runsvc.sh"
+	chmod +x "$TEST_ROOT/opt/runner/actions-runner/bin/runsvc.sh"
 
 	mkdir -p "$TEST_ROOT/usr/local/lib/runner"
 	cat >"$TEST_ROOT/usr/local/lib/runner/container-hooks.sh" <<'EOF'

@@ -27,9 +27,17 @@ main() {
   local runner_dir="${RUNNER_ACTIONS_RUNNER_DIR:-$(appliance_path /opt/runner/actions-runner)}"
   local hook_dir="${RUNNER_HOOKS_DIR:-$(appliance_path /usr/local/lib/runner)}"
 
-  if [[ ! -x "$runner_dir/runsvc.sh" ]]; then
+  local runsvc_path="$runner_dir/runsvc.sh"
+  if [[ ! -x "$runsvc_path" && -x "$runner_dir/bin/runsvc.sh" ]]; then
+    runsvc_path="$runner_dir/bin/runsvc.sh"
+    cover_path "runner-service:runsvc-bin"
+  else
+    cover_path "runner-service:runsvc-root"
+  fi
+
+  if [[ ! -x "$runsvc_path" ]]; then
     cover_path "runner-service:missing-runner"
-    die "Runner not installed/configured: missing $runner_dir/runsvc.sh"
+    die "Runner not installed/configured: missing $runner_dir/runsvc.sh (or $runner_dir/bin/runsvc.sh)"
   fi
 
   # Prefer using container hooks to avoid Docker.
@@ -42,7 +50,7 @@ main() {
   fi
 
   cover_path "runner-service:exec"
-  exec "$runner_dir/runsvc.sh"
+  exec "$runsvc_path"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

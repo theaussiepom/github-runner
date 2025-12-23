@@ -192,12 +192,12 @@ EOF
 @test "install: starts runner service when runner already installed+configured (dry-run)" {
 	write_config_env ''
 
-	mkdir -p "$TEST_ROOT/opt/runner/actions-runner"
-	cat >"$TEST_ROOT/opt/runner/actions-runner/runsvc.sh" <<'EOF'
+	mkdir -p "$TEST_ROOT/opt/runner/actions-runner/bin"
+	cat >"$TEST_ROOT/opt/runner/actions-runner/bin/runsvc.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
-	chmod +x "$TEST_ROOT/opt/runner/actions-runner/runsvc.sh"
+	chmod +x "$TEST_ROOT/opt/runner/actions-runner/bin/runsvc.sh"
 	touch "$TEST_ROOT/opt/runner/actions-runner/.runner"
 
 	ID_APPLIANCE_EXISTS=1 \
