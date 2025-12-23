@@ -650,6 +650,24 @@ export RUNNER_REGISTRATION_TOKEN="token"
 export RUNNER_NAME="test"
 ( set +e; configure_actions_runner_if_configured; exit 0 ) >/dev/null 2>&1 || true
 
+# Configure: reject API URLs (common misconfiguration).
+export RUNNER_GITHUB_URL="https://api.github.com/example/repo"
+export RUNNER_REGISTRATION_TOKEN="token"
+( set +e; configure_actions_runner_if_configured; exit 0 ) >/dev/null 2>&1 || true
+
+# Reset to valid inputs for subsequent coverage.
+export RUNNER_GITHUB_URL="https://github.com/example/repo"
+export RUNNER_REGISTRATION_TOKEN="token"
+
+# Configure: reject PAT-like tokens (404 during registration is a common symptom).
+export RUNNER_GITHUB_URL="https://github.com/example/repo"
+export RUNNER_REGISTRATION_TOKEN="ghp_examplepat"
+( set +e; configure_actions_runner_if_configured; exit 0 ) >/dev/null 2>&1 || true
+
+# Reset to valid inputs for subsequent coverage.
+export RUNNER_GITHUB_URL="https://github.com/example/repo"
+export RUNNER_REGISTRATION_TOKEN="token"
+
 # Configure: present + config.sh, cover both runuser and fallback branches.
 dir="\$(runner_dir)"
 mkdir -p "\$dir"
