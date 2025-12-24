@@ -7,9 +7,15 @@ This is useful when you want to test code against “real” infrastructure on a
 services, hardware quirks), but you don’t want every workflow run to permanently mutate the machine. The core idea is to
 keep the runner operationally predictable (systemd-managed, reliable at boot), while running container-style job steps
 inside an ephemeral `systemd-nspawn` guest so filesystem changes made during a job are discarded when the guest is torn
-down. You can still pass through specific host resources via bind mounts (for example a USB device node or a TTY): if a host
-path is bind-mounted read-write into the guest, then changes to that path persist on the host; use read-only binds when you
-want the job to observe host state without modifying it.
+down.
+
+Host integration is intentional and explicit: when you expose host resources into the guest (devices, sockets,
+directories, etc), you choose whether that access is read-only or read-write.
+
+- Read-only: the job can read host state, but cannot change it.
+- Read-write: any write the job makes to exposed host paths writes to the host and persists after the job ends.
+
+Note: writing to real devices (USB/ACM/TTY) is not reverted on teardown.
 
 If you’re new to self-hosted runners: it’s GitHub’s runner program, but running on your own machine
 instead of GitHub’s hosted runners.
