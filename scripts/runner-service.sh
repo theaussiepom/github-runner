@@ -50,6 +50,7 @@ main() {
   fi
 
   cover_path "runner-service:exec"
+  cd "$runner_dir"
   exec "$runsvc_path"
 }
 
