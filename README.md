@@ -3,10 +3,12 @@
 This repo is a small “appliance” (a handful of Bash scripts + systemd unit files) that runs a single
 GitHub Actions self-hosted runner on a Linux machine.
 
-Problem: self-hosted runners are easy to “get working once”, but hard to keep reliable and repeatable over time
-(boot-time startup, upgrades, and running container-style jobs without turning the host into a hand-maintained snowflake).
-Solution: this project packages the runner as a systemd-managed appliance with a first-boot installer, day-2 ops,
-and an execution model that can run container-style jobs via `systemd-nspawn` instead of requiring Docker.
+Self-hosted runners are great when you need access to your own hardware (ARM, GPUs, local network access, devices), but
+they can also turn into a “works on this one box” setup: starting reliably at boot, staying configured through upgrades,
+and handling container-style jobs without turning the host into a pile of ad-hoc scripts. This project is a small,
+systemd-first runner appliance that aims to make the runner feel like infrastructure: install it once, manage it like any
+other service, and keep the execution model explicit. When workflows use job containers, it can route those container-style
+steps through `systemd-nspawn` so you don’t have to depend on Docker being present on the host.
 
 If you’re new to self-hosted runners: it’s GitHub’s runner program, but running on your own machine
 instead of GitHub’s hosted runners.
