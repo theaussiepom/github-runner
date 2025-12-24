@@ -1,29 +1,12 @@
 # runner
 
-This repo is a small “appliance” (a handful of Bash scripts + systemd unit files) that runs a single
-GitHub Actions self-hosted runner on a Linux machine.
-
-This is useful when you want to test code against “real” infrastructure on a Linux host (USB devices, TTYs, local network
-services, hardware quirks), but you don’t want every workflow run to permanently mutate the machine. The core idea is to
-keep the runner operationally predictable (systemd-managed, reliable at boot), while running container-style job steps
-inside an ephemeral `systemd-nspawn` guest so filesystem changes made during a job are discarded when the guest is torn
-down.
-
-Host integration is intentional and explicit: when you expose host resources into the guest (devices, sockets,
-directories, etc), you choose whether that access is read-only or read-write.
-
-- Read-only: the job can read host state, but cannot change it.
-- Read-write: any write the job makes to exposed host paths writes to the host and persists after the job ends.
-
-Note: writing to real devices (USB/ACM/TTY) is not reverted on teardown.
-
 If you’re new to self-hosted runners: it’s GitHub’s runner program, but running on your own machine
 instead of GitHub’s hosted runners.
 
-Linux notes:
-
-- This works on general Linux (Raspberry Pi is supported, but it’s not a requirement).
-- systemd is used to start/stop things reliably at boot.
+This is useful when you want to test code against a Linux host but you don’t want every workflow run to permanently
+mutate the machine. The core idea is to keep the runner operationally predictable (systemd-managed, reliable at boot),
+while running container-style job steps inside an ephemeral `systemd-nspawn` guest so filesystem changes made during a
+job are discarded when the guest is torn down. Writing to real devices (USB/ACM/TTY) is not reverted on teardown.
 
 What it aims to do:
 
