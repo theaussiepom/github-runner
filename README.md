@@ -3,6 +3,12 @@
 This repo is a small “appliance” (a handful of Bash scripts + systemd unit files) that runs a single
 GitHub Actions self-hosted runner on a Linux machine.
 
+It’s meant for cases where you want the convenience of GitHub Actions, but you also want the runner to feel like
+infrastructure: something you can install once, have it come up reliably at boot, and keep it isolated from the host.
+Instead of hand-running the runner in a terminal (or maintaining a snowflake setup), this project gives you a
+systemd-managed runner with a clear “first boot installs, day-2 operations” workflow, and a path to execute
+container-style jobs without requiring Docker on the host.
+
 If you’re new to self-hosted runners: it’s GitHub’s runner program, but running on your own machine
 instead of GitHub’s hosted runners.
 
