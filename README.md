@@ -3,12 +3,12 @@
 This repo is a small “appliance” (a handful of Bash scripts + systemd unit files) that runs a single
 GitHub Actions self-hosted runner on a Linux machine.
 
-Self-hosted runners are great when you need access to your own hardware (ARM, GPUs, local network access, devices), but
-they can also turn into a “works on this one box” setup: starting reliably at boot, staying configured through upgrades,
-and handling container-style jobs without turning the host into a pile of ad-hoc scripts. This project is a small,
-systemd-first runner appliance that aims to make the runner feel like infrastructure: install it once, manage it like any
-other service, and keep the execution model explicit. When workflows use job containers, it can route those container-style
-steps through `systemd-nspawn` so you don’t have to depend on Docker being present on the host.
+This is useful when you want to test code against “real” infrastructure on a Pi (USB devices, TTYs, local network services,
+hardware quirks), but you don’t want every workflow run to permanently mutate the host. The core idea is to keep the runner
+as boring as possible (systemd-managed, predictable at boot), while running container-style job steps inside an ephemeral
+`systemd-nspawn` guest so changes made during a job are discarded when the guest is torn down. You can still pass through
+specific host resources via bind mounts (for example a USB device node or a TTY); just note that anything you bind in
+writable is, by definition, not “reverted” when the job finishes.
 
 If you’re new to self-hosted runners: it’s GitHub’s runner program, but running on your own machine
 instead of GitHub’s hosted runners.
