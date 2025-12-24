@@ -3,12 +3,13 @@
 This repo is a small “appliance” (a handful of Bash scripts + systemd unit files) that runs a single
 GitHub Actions self-hosted runner on a Linux machine.
 
-This is useful when you want to test code against “real” infrastructure on a Pi (USB devices, TTYs, local network services,
-hardware quirks), but you don’t want every workflow run to permanently mutate the host. The core idea is to keep the runner
-as boring as possible (systemd-managed, predictable at boot), while running container-style job steps inside an ephemeral
-`systemd-nspawn` guest so changes made during a job are discarded when the guest is torn down. You can still pass through
-specific host resources via bind mounts (for example a USB device node or a TTY); just note that anything you bind in
-writable is, by definition, not “reverted” when the job finishes.
+This is useful when you want to test code against “real” infrastructure on a Linux host (USB devices, TTYs, local network
+services, hardware quirks), but you don’t want every workflow run to permanently mutate the machine. The core idea is to
+keep the runner operationally predictable (systemd-managed, reliable at boot), while running container-style job steps
+inside an ephemeral `systemd-nspawn` guest so filesystem changes made during a job are discarded when the guest is torn
+down. You can still pass through specific host resources via bind mounts (for example a USB device node or a TTY): if a host
+path is bind-mounted read-write into the guest, then changes to that path persist on the host; use read-only binds when you
+want the job to observe host state without modifying it.
 
 If you’re new to self-hosted runners: it’s GitHub’s runner program, but running on your own machine
 instead of GitHub’s hosted runners.
